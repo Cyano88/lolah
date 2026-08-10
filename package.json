@@ -17,15 +17,20 @@
     "x:worker": "node --import tsx scripts/x-intelligence-worker.ts",
     "service": "node --import tsx scripts/lolah-service.ts",
     "subscription:dispatcher": "node --import tsx scripts/subscription-dispatcher.ts",
+    "contract:compile": "node --import tsx scripts/compile-xlayer-contract.ts",
     "x:resolve-sources": "node --import tsx scripts/resolve-x-source-catalog.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
+    "solc": "^0.8.36",
     "tsx": "^4.23.0",
     "typescript": "^5.5.3"
   },
   "dependencies": {
     "ws": "^8.21.3"
+  },
+  "overrides": {
+    "tmp": "^0.2.6"
   }
 }
