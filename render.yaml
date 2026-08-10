@@ -12,9 +12,13 @@ services:
       - key: LOLAH_X_ENABLED
         value: 'false'
       - key: LOLAH_X_STATE_PATH
-        value: /tmp/lolah/state.json
+        value: /tmp/lolah/x-state.json
       - key: LOLAH_X_DAILY_POST_CAP
         value: '50'
+      - key: LOLAH_UPBIT_ENABLED
+        value: 'false'
+      - key: LOLAH_UPBIT_STATE_PATH
+        value: /tmp/lolah/upbit-state.json
 
   - type: worker
     name: lolah-upbit

@@ -1,5 +1,6 @@
 import type { XUsageSnapshot } from './x-usage-budget.js'
 import type { XWorkerRuntimeState } from './x-worker-runtime.js'
+import type { UpbitWorkerRuntimeState } from './upbit-worker-runtime.js'
 
 export type LolahPublicResponse = {
   status: number
@@ -8,7 +9,7 @@ export type LolahPublicResponse = {
 }
 
 export type LolahPublicRouteDependencies = {
-  runtimeState: () => XWorkerRuntimeState
+  runtimeStates: () => { x: XWorkerRuntimeState; upbit: UpbitWorkerRuntimeState }
   usage: () => Promise<XUsageSnapshot>
   now?: () => Date
 }
@@ -30,12 +31,13 @@ export async function handleLolahPublicRequest(
   dependencies: LolahPublicRouteDependencies,
 ) {
   if (request.method === 'GET' && request.path === '/health') {
-    const runtime = dependencies.runtimeState()
+    const runtimes = dependencies.runtimeStates()
     return response(200, {
       ok: true,
       service: 'lolah',
       mode: 'read_only',
-      scannerState: runtime.state,
+      scannerState: runtimes.x.state,
+      workers: { x: runtimes.x.state, upbit: runtimes.upbit.state },
       simulationOnly: true,
       sendAllowed: false,
       executionAllowed: false,
@@ -46,13 +48,14 @@ export async function handleLolahPublicRequest(
       !request.body || typeof request.body !== 'object' || Array.isArray(request.body)
       || Object.keys(request.body as Record<string, unknown>).length > 0
     )) return response(400, { ok: false, error: 'Request body must be an empty JSON object.' })
-    const runtime = dependencies.runtimeState()
+    const runtimes = dependencies.runtimeStates()
     return response(200, {
       ok: true,
       schema: 'lolah-public-status-v1',
       service: 'lolah',
       observedAt: (dependencies.now ?? (() => new Date()))().toISOString(),
-      scanner: runtime,
+      scanner: runtimes.x,
+      workers: runtimes,
       usage: await dependencies.usage(),
       delivery: {
         publicAlertRoutes: false,

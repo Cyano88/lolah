@@ -1,5 +1,12 @@
 import { createServer } from 'node:http'
+import { resolve } from 'node:path'
 import { createLolahPublicNodeHandler } from '../src/public-node-adapter.js'
+import { runSupervisedRuntime } from '../src/runtime-supervisor.js'
+import {
+  runUpbitWorkerFromEnvironment,
+  upbitWorkerRuntimeConfig,
+  type UpbitWorkerRuntimeState,
+} from '../src/upbit-worker-runtime.js'
 import {
   createXRuntimeUsageBudget,
   runXWorkerFromEnvironment,
@@ -9,15 +16,23 @@ import {
 
 const port = Number(String(process.env.PORT ?? '10000').trim())
 if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error('PORT is invalid.')
-const config = xWorkerRuntimeConfig()
+const xConfig = xWorkerRuntimeConfig()
+const upbitConfig = upbitWorkerRuntimeConfig()
+if (resolve(xConfig.statePath) === resolve(upbitConfig.statePath)) {
+  throw new Error('X and Upbit workers require separate state files.')
+}
 const usageBudget = createXRuntimeUsageBudget()
-let runtimeState: XWorkerRuntimeState = {
-  state: 'disabled', dailyPostCap: config.dailyPostCap,
+let xRuntimeState: XWorkerRuntimeState = {
+  state: 'disabled', dailyPostCap: xConfig.dailyPostCap,
+  simulationOnly: true, sendAllowed: false, executionAllowed: false,
+}
+let upbitRuntimeState: UpbitWorkerRuntimeState = {
+  state: 'disabled', provider: 'disabled', enrichment: 'disabled',
   simulationOnly: true, sendAllowed: false, executionAllowed: false,
 }
 const controller = new AbortController()
 const handler = createLolahPublicNodeHandler({
-  runtimeState: () => runtimeState,
+  runtimeStates: () => ({ x: xRuntimeState, upbit: upbitRuntimeState }),
   usage: () => usageBudget.snapshot(),
 })
 const server = createServer((request, response) => void handler(request, response))
@@ -33,10 +48,28 @@ process.once('SIGINT', shutdown)
 process.once('SIGTERM', shutdown)
 
 try {
-  await runXWorkerFromEnvironment({
-    signal: controller.signal,
-    onState: state => { runtimeState = state },
-  })
+  await Promise.all([
+    runSupervisedRuntime({
+      component: 'x_intelligence', signal: controller.signal,
+      run: () => runXWorkerFromEnvironment({
+        signal: controller.signal,
+        onState: state => { xRuntimeState = state },
+      }),
+      onFailure: () => {
+        xRuntimeState = { ...xRuntimeState, state: 'preflight_unavailable' }
+      },
+    }),
+    runSupervisedRuntime({
+      component: 'upbit_monitor', signal: controller.signal,
+      run: () => runUpbitWorkerFromEnvironment({
+        signal: controller.signal,
+        onState: state => { upbitRuntimeState = state },
+      }),
+      onFailure: () => {
+        upbitRuntimeState = { ...upbitRuntimeState, state: 'unavailable' }
+      },
+    }),
+  ])
 } finally {
   await new Promise<void>(resolveClose => server.close(() => resolveClose()))
 }
