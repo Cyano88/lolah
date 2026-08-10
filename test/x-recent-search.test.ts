@@ -40,3 +40,17 @@ test('adds a validated since_id without persisting it internally', async () => {
   assert.equal(new URL(requested).searchParams.get('since_id'), '123456')
   await assert.rejects(() => fetchRecentXPosts('Kaito', 't'.repeat(30), fetcher, undefined, 'bad-id'), /sinceId/)
 })
+
+test('adds a validated start_time for a bounded first search', async () => {
+  let requested = ''
+  const fetcher: typeof fetch = async input => {
+    requested = String(input)
+    return new Response(JSON.stringify({ data: [], meta: {} }), { status: 200 })
+  }
+  await fetchRecentXPosts('Kaito', 't'.repeat(30), fetcher, undefined, undefined, '2026-08-10T10:00:00Z')
+  assert.equal(new URL(requested).searchParams.get('start_time'), '2026-08-10T10:00:00.000Z')
+  await assert.rejects(
+    () => fetchRecentXPosts('Kaito', 't'.repeat(30), fetcher, undefined, undefined, 'not-a-time'),
+    /startTime/,
+  )
+})

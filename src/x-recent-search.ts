@@ -29,6 +29,7 @@ export async function fetchRecentXPosts(
   fetcher: typeof fetch = fetch,
   nextToken?: string,
   sinceId?: string,
+  startTime?: string,
 ): Promise<XRecentSearchResult> {
   const normalizedQuery = query.replace(/\s+/g, ' ').trim()
   if (normalizedQuery.length < 2 || normalizedQuery.length > 480) throw new Error('X query must contain 2 through 480 characters.')
@@ -44,6 +45,11 @@ export async function fetchRecentXPosts(
   if (sinceId) {
     if (!/^\d+$/.test(sinceId)) throw new Error('X sinceId is invalid.')
     params.set('since_id', sinceId)
+  }
+  if (startTime) {
+    const startTimeMs = Date.parse(startTime)
+    if (!Number.isFinite(startTimeMs)) throw new Error('X startTime is invalid.')
+    params.set('start_time', new Date(startTimeMs).toISOString())
   }
   const response = await fetcher('https://api.x.com/2/tweets/search/recent?' + params.toString(), {
     headers: { Accept: 'application/json', Authorization: 'Bearer ' + bearerToken },

@@ -63,6 +63,7 @@ test('restores clusters, rate-limits calls, and corroborates on a later polling 
   const persisted = await readFile(statePath, 'utf8')
   assert.equal(persisted.includes('t'.repeat(30)), false)
   assert.equal(persisted.includes('next_token'), false)
+  assert.equal(new URL(requestedUrl).searchParams.get('start_time'), '2026-08-09T09:59:00.000Z')
 
   const blocked = await runReadOnlyPollingBatch({
     sourceKey: 'x:crypto-news', query: 'Kaito shutdown', bearerToken: 't'.repeat(30),
@@ -91,6 +92,7 @@ test('restores clusters, rate-limits calls, and corroborates on a later polling 
   assert.equal(second.posts[0].scans.length, 1)
   assert.equal(second.contextQueue.completed, 1)
   assert.equal(new URL(requestedUrl).searchParams.get('since_id'), '2001')
+  assert.equal(new URL(requestedUrl).searchParams.get('start_time'), null)
 })
 
 test('contains a context-provider failure without enabling delivery or execution', async t => {

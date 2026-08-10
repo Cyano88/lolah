@@ -107,6 +107,9 @@ export async function runReadOnlyPollingBatch(options: ReadOnlyPollingBatchOptio
   let nextToken: string | undefined
   let pagesFetched = 0
   let windowComplete = false
+  const firstBootStartTime = checkpoint
+    ? undefined
+    : new Date(batchStartedAt.getTime() - 2 * 60_000).toISOString()
   do {
     const page = await fetchRecentXPosts(
       options.query,
@@ -114,6 +117,7 @@ export async function runReadOnlyPollingBatch(options: ReadOnlyPollingBatchOptio
       options.fetcher ?? fetch,
       nextToken,
       checkpoint?.newestPostId,
+      firstBootStartTime,
     )
     pagesFetched += 1
     for (const post of page.posts) {
