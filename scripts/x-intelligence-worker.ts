@@ -26,7 +26,15 @@ process.once('SIGINT', () => controller.abort())
 process.once('SIGTERM', () => controller.abort())
 
 function waitForAbort() {
-  return new Promise<void>(resolve => controller.signal.addEventListener('abort', () => resolve(), { once: true }))
+  return new Promise<void>(resolve => {
+    const keepAlive = setInterval(() => undefined, 60_000)
+    const finish = () => {
+      clearInterval(keepAlive)
+      resolve()
+    }
+    if (controller.signal.aborted) finish()
+    else controller.signal.addEventListener('abort', finish, { once: true })
+  })
 }
 
 async function start() {
