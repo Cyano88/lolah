@@ -46,8 +46,10 @@ services:
         value: /var/lib/lolah-x/state.json
       - key: LOLAH_X_BEARER_TOKEN
         sync: false
-      - key: LOLAH_X_SOURCE_REGISTRY_JSON
-        sync: false
+      - key: LOLAH_X_SOURCE_CATALOG_PATH
+        value: config/x-source-catalog.json
+      - key: LOLAH_X_SOURCE_PIN_PATH
+        value: /var/lib/lolah-x/source-registry-pin.json
       - key: LOLAH_POLYDESK_CONTEXT_ENDPOINT
         value: https://polydesk.trade/api/agent/polymarket-context
       - key: LOLAH_POLYDESK_CONTEXT_TOKEN

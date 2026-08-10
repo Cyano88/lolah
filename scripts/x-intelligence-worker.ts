@@ -1,4 +1,5 @@
 import { readFile, stat } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { LolahDurableStateStore } from '../src/durable-state.js'
 import { expandRegistryWithHyperliquidUniverse } from '../src/hyperliquid-universe.js'
 import { runLiveReadOnlyScan } from '../src/live-scan.js'
@@ -6,19 +7,26 @@ import { validateLiveShadowPolydeskEndpoint } from '../src/live-shadow-runner.js
 import { preflightPolydeskMarketContext } from '../src/polydesk-client.js'
 import { validateSourceRegistry, type LolahSourceRegistry } from '../src/source-registry.js'
 import { runContinuousXIntelligenceWorker } from '../src/x-intelligence-worker.js'
+import { loadOrPinXSourceRegistry } from '../src/x-source-pin.js'
 
 function value(name: string) {
   return String(process.env[name] ?? '').trim()
 }
 
-async function registry() {
+async function registry(bearerToken: string, statePath: string) {
   const inline = value('LOLAH_X_SOURCE_REGISTRY_JSON')
   if (inline) return validateSourceRegistry(JSON.parse(inline) as LolahSourceRegistry)
   const path = value('LOLAH_X_SOURCE_REGISTRY_PATH')
-  if (!path) throw new Error('LOLAH_X_SOURCE_REGISTRY_JSON or LOLAH_X_SOURCE_REGISTRY_PATH is required.')
-  const metadata = await stat(path)
-  if (!metadata.isFile() || metadata.size < 2 || metadata.size > 512 * 1_024) throw new Error('X source registry is invalid.')
-  return validateSourceRegistry(JSON.parse(await readFile(path, 'utf8')) as LolahSourceRegistry)
+  if (path) {
+    const metadata = await stat(path)
+    if (!metadata.isFile() || metadata.size < 2 || metadata.size > 512 * 1_024) throw new Error('X source registry is invalid.')
+    return validateSourceRegistry(JSON.parse(await readFile(path, 'utf8')) as LolahSourceRegistry)
+  }
+  return loadOrPinXSourceRegistry({
+    catalogPath: resolve(value('LOLAH_X_SOURCE_CATALOG_PATH') || 'config/x-source-catalog.json'),
+    pinPath: value('LOLAH_X_SOURCE_PIN_PATH') || resolve(dirname(statePath), 'source-registry-pin.json'),
+    bearerToken,
+  })
 }
 
 const controller = new AbortController()
@@ -48,7 +56,7 @@ async function start() {
     value('LOLAH_POLYDESK_CONTEXT_ENDPOINT'),
     'production_shadow',
   )
-  const sources = await expandRegistryWithHyperliquidUniverse(await registry())
+  const sources = await expandRegistryWithHyperliquidUniverse(await registry(bearerToken, statePath))
   let failures = 0
   while (!controller.signal.aborted) {
     try {
