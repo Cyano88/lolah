@@ -16,6 +16,7 @@
     "upbit:worker": "node --import tsx scripts/upbit-listing-worker.ts",
     "x:worker": "node --import tsx scripts/x-intelligence-worker.ts",
     "service": "node --import tsx scripts/lolah-service.ts",
+    "subscription:dispatcher": "node --import tsx scripts/subscription-dispatcher.ts",
     "x:resolve-sources": "node --import tsx scripts/resolve-x-source-catalog.ts"
   },
   "devDependencies": {

@@ -59,7 +59,14 @@ export async function handleLolahPublicRequest(
       usage: await dependencies.usage(),
       delivery: {
         publicAlertRoutes: false,
-        reason: 'Official OKX recipient-session verification is not configured.',
+        subscriptionPush: false,
+        subscriptionPlan: {
+          serviceName: 'Lolah Market Watch',
+          freeTrialHours: 72,
+          interval: 'month',
+          feeUsdt: '1',
+        },
+        reason: 'Standalone Lolah ASP identity and controlled subscription delivery test are pending.',
       },
       simulationOnly: true,
       sendAllowed: false,

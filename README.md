@@ -117,6 +117,6 @@ The full live staging pipeline additionally requires LOLAH_SOURCE_REGISTRY_PATH,
 
 ## Commercial plan
 
-PolyDesk Prediction Market Context is planned as a pull subscription with a three-day free trial followed by 1 USDT per 30 days. Lolah Instant Scan is pull-based. Lolah Market Watch will be a separate opt-in push subscription after delivery, expiry, deduplication, wrong-recipient, and offline-replay tests pass.
+PolyDesk Prediction Market Context is planned as a pull subscription. Lolah Instant Scan is pull-based. Lolah Market Watch is the opt-in push product: 72 hours free, then 1 USDT per month. Its dispatcher fails closed unless it can intersect OKX's current active-subscription jobs with subscriptions provided by Lolah's exact ASP identity; each message still passes through OKX's recipient-eligibility check. Delivery is deduplicated durably across restarts, expired signals are suppressed, and billing eligibility is never extended from local cached state.
 
-No OKX service is listed from this workspace. The Upbit public-data monitor may be deployed as an isolated read-only daemon; trading, push delivery, billing, and public authenticated routes remain disabled.
+No Lolah OKX service is listed from this workspace yet. The Upbit public-data monitor may be deployed as an isolated read-only daemon; trading, signing, billing mutation, public buyer-controlled alert routes, and production push remain disabled until Lolah's identity and a controlled subscription delivery test are complete.

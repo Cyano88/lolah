@@ -38,7 +38,14 @@ test('publishes only read-only health and cost status', async () => {
   assert.deepEqual(status.body.workers, { x: runtime, upbit: upbitRuntime })
   assert.deepEqual(status.body.delivery, {
     publicAlertRoutes: false,
-    reason: 'Official OKX recipient-session verification is not configured.',
+    subscriptionPush: false,
+    subscriptionPlan: {
+      serviceName: 'Lolah Market Watch',
+      freeTrialHours: 72,
+      interval: 'month',
+      feeUsdt: '1',
+    },
+    reason: 'Standalone Lolah ASP identity and controlled subscription delivery test are pending.',
   })
   const blocked = await handleLolahPublicRequest({ method: 'POST', path: '/v1/watches', body: {} }, dependencies())
   assert.equal(blocked.status, 404)
