@@ -1,0 +1,23 @@
+{
+  "name": "lolah-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "fixture:e2e": "node --import tsx scripts/run-end-to-end-fixture.ts",
+    "shadow:live": "node --import tsx scripts/live-readonly-probe.ts",
+    "shadow:staging": "node --import tsx scripts/live-readonly-staging-probe.ts",
+    "pipeline:staging": "node --import tsx scripts/live-pipeline-staging.ts",
+    "upbit:worker": "node --import tsx scripts/upbit-listing-worker.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.5.3"
+  }
+}

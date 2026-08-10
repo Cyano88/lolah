@@ -1,0 +1,16 @@
+services:
+  - type: worker
+    name: lolah-upbit
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm run upbit:worker
+    autoDeploy: true
+    disk:
+      name: lolah-upbit-data
+      mountPath: /var/lib/lolah
+      sizeGB: 1
+    envVars:
+      - key: LOLAH_UPBIT_STATE_PATH
+        value: /var/lib/lolah/upbit-state.json
