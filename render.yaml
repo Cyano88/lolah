@@ -1,4 +1,21 @@
 services:
+  - type: web
+    name: lolah-service-staging
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run service
+    autoDeploy: false
+    healthCheckPath: /health
+    envVars:
+      - key: LOLAH_X_ENABLED
+        value: 'false'
+      - key: LOLAH_X_STATE_PATH
+        value: /tmp/lolah/state.json
+      - key: LOLAH_X_DAILY_POST_CAP
+        value: '50'
+
   - type: worker
     name: lolah-upbit
     runtime: node

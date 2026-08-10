@@ -52,6 +52,12 @@ For manual staging, the resolver can still produce registry JSON. Production res
 
 No finite source list can guarantee that every crypto event will be captured. Upbit therefore remains on its dedicated lower-latency website feed, while X provides broad complementary coverage. Filtered-stream support and continuous post-event price-reaction tracking are separate follow-up milestones.
 
+## Combined public service staging
+
+The service command starts one Node process containing the public HTTP listener and the optional X worker runtime. The staging deployment keeps LOLAH_X_ENABLED=false, so it cannot duplicate production scans or spend X credits. GET /health and the zero-parameter POST /v1/status are the only public routes. Status reports the scanner state and durable post-read allowance while keeping secrets, post contents, alerts, watches, and recipient identities private.
+
+The existing watch and simulated alert handlers remain loopback-only fixtures. They are not mounted by the public adapter because official OKX recipient-session verification is not yet configured. Unknown public paths, including watch and alert paths, return 404; sending, execution, billing, subscriptions, and listing remain disabled.
+
 ## Upbit historical shadow replay
 
 The replay runner fetches genuine recent Upbit records from CoinListing's public, keyless history endpoint. Receipt timing is explicitly simulated from the provider's sent_time field and never represented as a live measurement. Each supported symbol is converted into the same verified Lolah event contract used by the normal context pipeline.
