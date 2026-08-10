@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { createLolahPublicNodeHandler } from '../src/public-node-adapter.js'
 import { runSupervisedRuntime } from '../src/runtime-supervisor.js'
 import {
@@ -17,7 +17,13 @@ import {
 const port = Number(String(process.env.PORT ?? '10000').trim())
 if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error('PORT is invalid.')
 const xConfig = xWorkerRuntimeConfig()
-const upbitConfig = upbitWorkerRuntimeConfig()
+const upbitEnabled = String(process.env.LOLAH_UPBIT_ENABLED ?? '').trim() === 'true'
+const serviceEnvironment: NodeJS.ProcessEnv = {
+  ...process.env,
+  LOLAH_UPBIT_STATE_PATH: process.env.LOLAH_UPBIT_STATE_PATH
+    || (upbitEnabled ? '' : resolve(dirname(xConfig.statePath), 'upbit-state.json')),
+}
+const upbitConfig = upbitWorkerRuntimeConfig(serviceEnvironment)
 if (resolve(xConfig.statePath) === resolve(upbitConfig.statePath)) {
   throw new Error('X and Upbit workers require separate state files.')
 }
@@ -63,6 +69,7 @@ try {
       component: 'upbit_monitor', signal: controller.signal,
       run: () => runUpbitWorkerFromEnvironment({
         signal: controller.signal,
+        environment: serviceEnvironment,
         onState: state => { upbitRuntimeState = state },
       }),
       onFailure: () => {
