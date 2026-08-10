@@ -58,12 +58,14 @@ test('uses the official xmtp-send job and recipient eligibility path', async () 
   }
   const messenger = new OfficialOkxSubscriptionMessenger(run, 'okx-a2a-fixture')
   assert.deepEqual(await messenger.send({
-    jobId: 'job_123', toAgentId: '7001', message: 'Verified intelligence only.',
+    jobId: 'job_123', toAgentId: '7001', providerAgentId: '9001',
+    message: 'Verified intelligence only.',
   }), { messageId: 'message_123' })
   assert.deepEqual(calls, [{
     executable: 'okx-a2a-fixture',
     args: [
       'xmtp-send', '--job-id', 'job_123', '--to-agent-id', '7001',
+      '--session-agent-id', '9001',
       '--message', 'Verified intelligence only.', '--json',
     ],
   }])

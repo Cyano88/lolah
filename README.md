@@ -119,7 +119,9 @@ The full live staging pipeline additionally requires LOLAH_SOURCE_REGISTRY_PATH,
 
 PolyDesk Prediction Market Context is planned as a pull subscription. Lolah Instant Scan is pull-based. Lolah Market Watch is the opt-in push product: 72 hours free, then 1 USDT per month. Its dispatcher fails closed unless it can intersect OKX's current active-subscription jobs with subscriptions provided by Lolah's exact ASP identity; each message still passes through OKX's recipient-eligibility check. Delivery is deduplicated durably across restarts, expired signals are suppressed, and billing eligibility is never extended from local cached state.
 
-No Lolah OKX service is listed from this workspace yet. The Upbit public-data monitor may be deployed as an isolated read-only daemon; trading, signing, billing mutation, public buyer-controlled alert routes, and production push remain disabled until Lolah's identity and a controlled subscription delivery test are complete.
+Lolah Market Watch is listed under standalone Lolah ASP #10775, and a controlled direct OKX subscription delivery test has passed. The consolidated Render scanner remains read-only. Production push uses a private token-protected signal feed polled by Lolah's isolated VPS dispatcher; the dispatcher still intersects the live OKX active-subscription set and sends explicitly as #10775. Trading, signing, billing mutation, and public buyer-controlled alert routes remain disabled.
+
+The private bridge requires the same unlogged `LOLAH_SUBSCRIPTION_FEED_TOKEN` on Render and in `/etc/lolah/subscription-dispatcher.env` on the VPS. The VPS unit template is `ops/lolah-subscription-dispatcher.service`; its ledger stays under `/var/lib/lolah-a2a` and never stores the relay token or subscriber billing state.
 
 ## X Layer proof and BuildX
 

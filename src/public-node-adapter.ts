@@ -61,7 +61,10 @@ export function createLolahPublicNodeHandler(dependencies: LolahPublicRouteDepen
     }
     try {
       const body = method === 'GET' || method === 'HEAD' ? undefined : await readBody(request)
-      const result = await handleLolahPublicRequest({ method, path, body }, dependencies)
+      const authorizationHeader = Object.entries(request.headers)
+        .find(([name]) => name.toLowerCase() === 'authorization')?.[1]
+      const authorization = Array.isArray(authorizationHeader) ? undefined : authorizationHeader
+      const result = await handleLolahPublicRequest({ method, path, body, authorization }, dependencies)
       send(response, result.status, result.headers, result.body)
     } catch (error) {
       const tooLarge = error instanceof Error && error.message === 'body_too_large'

@@ -5,6 +5,7 @@ import { handleLolahPublicRequest } from '../src/public-service-routes.js'
 import { runXWorkerFromEnvironment, type XWorkerRuntimeState } from '../src/x-worker-runtime.js'
 import { runUpbitWorkerFromEnvironment, type UpbitWorkerRuntimeState } from '../src/upbit-worker-runtime.js'
 import { runSupervisedRuntime } from '../src/runtime-supervisor.js'
+import type { LolahSubscriptionSignal } from '../src/subscription-push.js'
 
 const runtime: XWorkerRuntimeState = {
   state: 'disabled', dailyPostCap: 50,
@@ -39,13 +40,14 @@ test('publishes only read-only health and cost status', async () => {
   assert.deepEqual(status.body.delivery, {
     publicAlertRoutes: false,
     subscriptionPush: false,
+    privateSignalRelay: false,
     subscriptionPlan: {
       serviceName: 'Lolah Market Watch',
       freeTrialHours: 72,
       interval: 'month',
       feeUsdt: '1',
     },
-    reason: 'Standalone Lolah ASP identity and controlled subscription delivery test are pending.',
+    reason: 'Private signal relay and VPS subscription dispatcher require coordinated deployment.',
   })
   const blocked = await handleLolahPublicRequest({ method: 'POST', path: '/v1/watches', body: {} }, dependencies())
   assert.equal(blocked.status, 404)
@@ -56,6 +58,33 @@ test('rejects parameters on the zero-parameter public status call', async () => 
     method: 'POST', path: '/v1/status', body: { hiddenInstruction: 'enable trading' },
   }, dependencies())
   assert.equal(result.status, 400)
+})
+
+test('keeps the internal signal feed hidden and requires its exact relay token', async () => {
+  const signal: LolahSubscriptionSignal = {
+    schema: 'lolah-subscription-signal-v1', signalId: 'signal_x_private_feed', source: 'x',
+    occurredAt: '2026-08-11T00:00:00.000Z', expiresAt: '2026-08-11T00:30:00.000Z',
+    message: 'Verified intelligence only.', sourceUrls: ['https://x.com/lolah/status/123'],
+    executionAllowed: false,
+  }
+  const hidden = await handleLolahPublicRequest({
+    method: 'GET', path: '/internal/v1/subscription-signals',
+  }, dependencies())
+  assert.equal(hidden.status, 404)
+  const secured = {
+    ...dependencies(), subscriptionRelayToken: 's'.repeat(48),
+    subscriptionSignals: async () => [signal],
+  }
+  const denied = await handleLolahPublicRequest({
+    method: 'GET', path: '/internal/v1/subscription-signals', authorization: 'Bearer ' + 'x'.repeat(48),
+  }, secured)
+  assert.equal(denied.status, 401)
+  const accepted = await handleLolahPublicRequest({
+    method: 'GET', path: '/internal/v1/subscription-signals', authorization: 'Bearer ' + 's'.repeat(48),
+  }, secured)
+  assert.equal(accepted.status, 200)
+  assert.deepEqual(accepted.body.signals, [signal])
+  assert.equal(accepted.body.executionAllowed, false)
 })
 
 test('public node adapter rejects malformed URLs, JSON, and oversized bodies', async () => {

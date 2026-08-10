@@ -33,7 +33,12 @@ export type LolahSubscriptionDirectory = {
 }
 
 export type LolahSubscriptionMessenger = {
-  send(input: { jobId: string; toAgentId: string; message: string }): Promise<{ messageId: string }>
+  send(input: {
+    jobId: string
+    toAgentId: string
+    providerAgentId: string
+    message: string
+  }): Promise<{ messageId: string }>
 }
 
 type DeliveryRecord = {
@@ -224,6 +229,7 @@ export async function dispatchSubscriptionSignals(input: {
         const result = await input.messenger.send({
           jobId: subscriber.jobId,
           toAgentId: subscriber.buyerAgentId,
+          providerAgentId,
           message: signal.message,
         })
         await input.ledger.recordAttempt({

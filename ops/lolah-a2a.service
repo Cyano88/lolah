@@ -1,0 +1,27 @@
+[Unit]
+Description=Lolah isolated OKX A2A listener
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lolah
+Group=lolah
+WorkingDirectory=/opt/lolah/app
+Environment=NODE_ENV=production
+Environment=PATH=/home/lolah/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=OKX_AGENT_TASK_HOME=/var/lib/lolah-a2a
+Environment=OKX_AGENT_TASK_DAEMON=1
+Environment=OKX_AGENT_TASK_SELF_LOG=1
+Environment=OKX_AGENT_TASK_DISABLE_AI=1
+ExecStart=/home/lolah/.local/bin/okx-a2a run
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/lolah/.onchainos /home/lolah/.okx-agent-task /var/lib/lolah-a2a
+
+[Install]
+WantedBy=multi-user.target

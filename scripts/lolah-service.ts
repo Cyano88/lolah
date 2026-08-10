@@ -1,6 +1,8 @@
 import { createServer } from 'node:http'
 import { dirname, resolve } from 'node:path'
 import { createLolahPublicNodeHandler } from '../src/public-node-adapter.js'
+import { LolahDurableStateStore } from '../src/durable-state.js'
+import { collectSubscriptionSignals } from '../src/subscription-signal-source.js'
 import { runSupervisedRuntime } from '../src/runtime-supervisor.js'
 import {
   runUpbitWorkerFromEnvironment,
@@ -13,6 +15,7 @@ import {
   xWorkerRuntimeConfig,
   type XWorkerRuntimeState,
 } from '../src/x-worker-runtime.js'
+import { UpbitListingWorkerStore } from '../src/upbit-listing-worker.js'
 
 const port = Number(String(process.env.PORT ?? '10000').trim())
 if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error('PORT is invalid.')
@@ -28,6 +31,8 @@ if (resolve(xConfig.statePath) === resolve(upbitConfig.statePath)) {
   throw new Error('X and Upbit workers require separate state files.')
 }
 const usageBudget = createXRuntimeUsageBudget()
+const xStore = new LolahDurableStateStore(xConfig.statePath)
+const upbitStore = new UpbitListingWorkerStore(upbitConfig.statePath)
 let xRuntimeState: XWorkerRuntimeState = {
   state: 'disabled', dailyPostCap: xConfig.dailyPostCap,
   simulationOnly: true, sendAllowed: false, executionAllowed: false,
@@ -40,6 +45,8 @@ const controller = new AbortController()
 const handler = createLolahPublicNodeHandler({
   runtimeStates: () => ({ x: xRuntimeState, upbit: upbitRuntimeState }),
   usage: () => usageBudget.snapshot(),
+  subscriptionSignals: () => collectSubscriptionSignals({ xStore, upbitStore }),
+  subscriptionRelayToken: process.env.LOLAH_SUBSCRIPTION_FEED_TOKEN,
 })
 const server = createServer((request, response) => void handler(request, response))
 

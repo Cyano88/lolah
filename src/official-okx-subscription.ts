@@ -83,9 +83,15 @@ export class OfficialOkxSubscriptionMessenger implements LolahSubscriptionMessen
     private readonly a2aExecutable = process.env.LOLAH_OKX_A2A_BIN || 'okx-a2a',
   ) {}
 
-  async send(input: { jobId: string; toAgentId: string; message: string }) {
+  async send(input: {
+    jobId: string
+    toAgentId: string
+    providerAgentId: string
+    message: string
+  }) {
     const response = await this.run(this.a2aExecutable, [
       'xmtp-send', '--job-id', input.jobId, '--to-agent-id', input.toAgentId,
+      '--session-agent-id', input.providerAgentId,
       '--message', input.message, '--json',
     ])
     if (!record(response)) throw new Error('Official OKX delivery response is invalid.')

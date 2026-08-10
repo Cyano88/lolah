@@ -1,0 +1,32 @@
+[Unit]
+Description=Lolah isolated OKX subscription signal dispatcher
+After=network-online.target lolah-a2a.service
+Wants=network-online.target
+Requires=lolah-a2a.service
+
+[Service]
+Type=simple
+User=lolah
+Group=lolah
+WorkingDirectory=/opt/lolah/app
+Environment=NODE_ENV=production
+Environment=PATH=/home/lolah/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=OKX_AGENT_TASK_HOME=/var/lib/lolah-a2a
+EnvironmentFile=/etc/lolah/subscription-dispatcher.env
+ExecStart=/usr/local/bin/npm run subscription:dispatcher
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/lolah/.onchainos /home/lolah/.okx-agent-task /var/lib/lolah-a2a
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target
