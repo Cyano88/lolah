@@ -20,7 +20,7 @@ Lolah may share the physical host used by PolyDesk, but it must remain operation
 - private environment: `/etc/lolah/upbit.env`
 - daemon: `lolah-upbit.service`
 
-The deployed worker consumes only an authorized relay of Upbit website notices. Every relay envelope must carry an Ed25519 signature, monotonic sequence, and official Upbit notice URL. Lolah stores only the provider public key, recomputes freshness at receipt, and rejects unsigned, replayed, conflicting, future, or stale envelopes. Direct polling of Upbit's consumer website is not enabled in deployed mode. The worker persists fresh or stale revision decisions and simulation-only pull records. It cannot push messages, sign, trade, broadcast, bill, or register an OKX service.
+The deployed worker consumes CoinListing's raw Upbit feed at `wss://seoul.coinlisting.pro/feed`. Lolah keeps its own listing parser, accepts only official Upbit notice URLs, measures provider-to-Lolah latency at receipt, and durably suppresses exact replays. The provider key is configured only as the masked `LOLAH_COINLISTING_KEY` deployment secret and is never logged or persisted. Direct polling of Upbit's consumer website is not enabled in deployed mode. The worker persists fresh or stale revision decisions and simulation-only pull records. It cannot push messages, sign, trade, broadcast, bill, or register an OKX service.
 
 ## Root-access VPS alternative: preflight
 

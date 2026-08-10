@@ -1,14 +1,12 @@
 import type { UpbitPollResult } from './upbit-listing-monitor.js'
 import type { UpbitListingMonitorSnapshot } from './upbit-listing-monitor.js'
 
-export type UpbitSignedRelaySnapshot = {
-  schema: 'lolah-upbit-relay-state-v1'
-  lastSequence?: number
-  lastDigest?: string
+export type UpbitCoinListingSnapshot = {
+  schema: 'lolah-upbit-coinlisting-state-v1'
   revisions: Array<{ noticeId: number; revisionId: string }>
 }
 
-export type UpbitListingSourceSnapshot = UpbitListingMonitorSnapshot | UpbitSignedRelaySnapshot
+export type UpbitListingSourceSnapshot = UpbitListingMonitorSnapshot | UpbitCoinListingSnapshot
 
 export interface UpbitListingSource {
   poll(detectedAt?: Date): Promise<UpbitPollResult>

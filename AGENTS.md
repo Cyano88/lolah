@@ -11,3 +11,5 @@ Deployment must not modify, restart, share state with, or reuse the Linux identi
 Future execution requires a separate reviewed mandate, current account-state checks, a reviewed venue adapter, protective-order behavior, and the current OKX-approved execution flow.
 
 Never request, store, log, or transmit private keys, seed phrases, passwords, reusable authorizations, API secrets, wallet keys, or signing material.
+
+Narrow provider exception: the CoinListing license key may be read only from the masked `LOLAH_COINLISTING_KEY` deployment secret and transmitted only in the authenticated WebSocket handshake to the exact allowlisted CoinListing endpoint. It must never be committed, persisted, displayed, included in logs or errors, returned by a route, or sent to any other host.

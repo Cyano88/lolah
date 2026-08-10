@@ -15,8 +15,8 @@ services:
       - key: LOLAH_UPBIT_STATE_PATH
         value: /var/lib/lolah/upbit-state.json
       - key: LOLAH_UPBIT_SOURCE
-        value: signed_relay
-      - key: LOLAH_UPBIT_RELAY_URL
-        sync: false
-      - key: LOLAH_UPBIT_RELAY_PUBLIC_KEY_SPKI_BASE64
+        value: coinlisting
+      - key: LOLAH_COINLISTING_ENDPOINT
+        value: wss://seoul.coinlisting.pro/feed
+      - key: LOLAH_COINLISTING_KEY
         sync: false

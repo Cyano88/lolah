@@ -174,7 +174,7 @@ function assertState(value: unknown): asserts value is WorkerState {
     }
   }
   if (state.monitor) {
-    if (!['lolah-upbit-monitor-state-v1', 'lolah-upbit-relay-state-v1'].includes(state.monitor.schema)
+    if (!['lolah-upbit-monitor-state-v1', 'lolah-upbit-coinlisting-state-v1'].includes(state.monitor.schema)
       || !Array.isArray(state.monitor.revisions) || state.monitor.revisions.length > 5_000) {
       throw new Error('Upbit worker monitor state is invalid.')
     }
@@ -316,7 +316,7 @@ export class UpbitListingWorkerStore {
 
   async commitPoll(snapshot: UpbitListingSourceSnapshot, events: UpbitListingEvent[], now = new Date()) {
     if (!Number.isFinite(now.getTime())
-      || !['lolah-upbit-monitor-state-v1', 'lolah-upbit-relay-state-v1'].includes(snapshot.schema)
+      || !['lolah-upbit-monitor-state-v1', 'lolah-upbit-coinlisting-state-v1'].includes(snapshot.schema)
       || events.some(event => !validEvent(event))) {
       throw new Error('Upbit worker poll commit is invalid.')
     }
@@ -464,14 +464,15 @@ export async function runUpbitListingWorkerCycle(input: {
   fetcher?: typeof fetch
   now?: () => Date
   actionableLatencyMs?: number
+  source?: UpbitListingSource
   sourceFactory?: (snapshot?: UpbitListingSourceSnapshot) => UpbitListingSource
 }): Promise<UpbitListingWorkerCycleResult> {
   const now = input.now ?? (() => new Date())
   const detectedAt = now()
   const snapshot = await input.store.getMonitorSnapshot()
-  const monitor = input.sourceFactory
+  const monitor = input.source ?? (input.sourceFactory
     ? input.sourceFactory(snapshot)
-    : new UpbitListingMonitor(input.fetcher ?? fetch, snapshot as UpbitListingMonitorSnapshot | undefined, input.actionableLatencyMs)
+    : new UpbitListingMonitor(input.fetcher ?? fetch, snapshot as UpbitListingMonitorSnapshot | undefined, input.actionableLatencyMs))
   const result = await monitor.poll(detectedAt)
   const commit = await input.store.commitPoll(monitor.snapshot(), result.events, now())
   return {
@@ -493,6 +494,7 @@ export async function runContinuousUpbitListingWorker(input: {
   signal: AbortSignal
   onCycle?: (result: UpbitListingWorkerCycleResult) => void
   onError?: (failure: { consecutiveFailures: number; retryAfterMs: number; category: 'upstream_unavailable' }) => void
+  source?: UpbitListingSource
   sourceFactory?: (snapshot?: UpbitListingSourceSnapshot) => UpbitListingSource
 }) {
   let consecutiveFailures = 0
