@@ -26,3 +26,29 @@ services:
         value: https://polydesk.trade/api/agent/polymarket-context
       - key: LOLAH_POLYDESK_CONTEXT_TOKEN
         sync: false
+
+  - type: worker
+    name: lolah-x-intelligence
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm run x:worker
+    autoDeploy: true
+    disk:
+      name: lolah-x-data
+      mountPath: /var/lib/lolah-x
+      sizeGB: 1
+    envVars:
+      - key: LOLAH_X_ENABLED
+        value: 'false'
+      - key: LOLAH_X_STATE_PATH
+        value: /var/lib/lolah-x/state.json
+      - key: LOLAH_X_BEARER_TOKEN
+        sync: false
+      - key: LOLAH_X_SOURCE_REGISTRY_JSON
+        sync: false
+      - key: LOLAH_POLYDESK_CONTEXT_ENDPOINT
+        value: https://polydesk.trade/api/agent/polymarket-context
+      - key: LOLAH_POLYDESK_CONTEXT_TOKEN
+        sync: false

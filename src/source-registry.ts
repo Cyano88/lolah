@@ -1,11 +1,23 @@
 export type LolahSourceTier = 'official_project' | 'security_researcher' | 'trusted_reporter'
 
+export type LolahSourceCategory =
+  | 'exchange'
+  | 'foundation'
+  | 'project'
+  | 'founder'
+  | 'developer'
+  | 'regulator'
+  | 'security'
+  | 'research'
+  | 'crypto_news'
+
 export type LolahEntityDefinition = {
   id: string
   name: string
   aliases: string[]
   symbols: string[]
   hyperliquidMarkets: string[]
+  matchMode?: 'name_or_symbol' | 'symbol_strict'
 }
 
 export type LolahSourceDefinition = {
@@ -13,6 +25,7 @@ export type LolahSourceDefinition = {
   authorId: string
   username: string
   tier: LolahSourceTier
+  category?: LolahSourceCategory
   entityIds: string[]
 }
 
@@ -76,23 +89,26 @@ export function validateSourceRegistry(value: LolahSourceRegistry): LolahSourceR
     throw new Error('Source registry must contain 1 through 2000 sources.')
   }
   const entities = value.entities.map(entity => {
-    requireOnlyFields(entity, ['id', 'name', 'aliases', 'symbols', 'hyperliquidMarkets'], 'Entity')
+    requireOnlyFields(entity, ['id', 'name', 'aliases', 'symbols', 'hyperliquidMarkets', 'matchMode'], 'Entity')
     const id = clean(entity.id, 'Entity id', 2, 80).toLowerCase()
     if (!/^[a-z0-9][a-z0-9_-]+$/.test(id)) throw new Error('Entity id is invalid.')
     const aliases = stringList(entity.aliases, 'Entity aliases', 1, 20)
     const symbols = stringList(entity.symbols, 'Entity symbols', 1, 10).map(symbol => symbol.toUpperCase())
+    const matchMode = entity.matchMode ?? 'name_or_symbol'
+    if (!['name_or_symbol', 'symbol_strict'].includes(matchMode)) throw new Error('Entity match mode is unsupported.')
     return {
       id,
       name: clean(entity.name, 'Entity name', 2, 80),
       aliases,
       symbols,
       hyperliquidMarkets: stringList(entity.hyperliquidMarkets, 'Hyperliquid markets', 1, 10).map(marketSymbol),
+      matchMode,
     }
   })
   unique(entities.map(entity => entity.id), 'Entity ids')
   const entityIds = new Set(entities.map(entity => entity.id))
   const sources = value.sources.map(source => {
-    requireOnlyFields(source, ['platform', 'authorId', 'username', 'tier', 'entityIds'], 'Source')
+    requireOnlyFields(source, ['platform', 'authorId', 'username', 'tier', 'category', 'entityIds'], 'Source')
     if (source.platform !== 'x') throw new Error('Only X sources are enabled in this phase.')
     const authorId = clean(source.authorId, 'Source authorId', 1, 40)
     if (!/^\d+$/.test(authorId)) throw new Error('X source authorId must be numeric.')
@@ -101,9 +117,26 @@ export function validateSourceRegistry(value: LolahSourceRegistry): LolahSourceR
     if (!['official_project', 'security_researcher', 'trusted_reporter'].includes(source.tier)) {
       throw new Error('Source tier is unsupported.')
     }
-    const sourceEntityIds = stringList(source.entityIds, 'Source entityIds', 1, 100).map(id => id.toLowerCase())
-    if (sourceEntityIds.some(id => !entityIds.has(id))) throw new Error('Source references an unknown entity.')
-    return { platform: 'x' as const, authorId, username, tier: source.tier, entityIds: sourceEntityIds }
+    const category = source.category === undefined ? undefined : clean(source.category, 'Source category', 3, 30)
+    if (category && !['exchange', 'foundation', 'project', 'founder', 'developer', 'regulator',
+      'security', 'research', 'crypto_news'].includes(category)) {
+      throw new Error('Source category is unsupported.')
+    }
+    const sourceEntityIds = stringList(source.entityIds, 'Source entityIds', 1, 500).map(id => id.toLowerCase())
+    if (sourceEntityIds.includes('*') && sourceEntityIds.length !== 1) {
+      throw new Error('A wildcard source scope must be the only entity ID.')
+    }
+    if (sourceEntityIds.some(id => id !== '*' && !entityIds.has(id))) {
+      throw new Error('Source references an unknown entity.')
+    }
+    return {
+      platform: 'x' as const,
+      authorId,
+      username,
+      tier: source.tier,
+      ...(category ? { category: category as LolahSourceCategory } : {}),
+      entityIds: sourceEntityIds,
+    }
   })
   unique(sources.map(source => source.authorId), 'Source authorIds')
   return { entities, sources }
@@ -114,6 +147,7 @@ export function sourceByAuthorId(registry: LolahSourceRegistry, authorId: string
 }
 
 export function entitiesForSource(registry: LolahSourceRegistry, source: LolahSourceDefinition) {
+  if (source.entityIds.length === 1 && source.entityIds[0] === '*') return registry.entities
   const allowed = new Set(source.entityIds)
   return registry.entities.filter(entity => allowed.has(entity.id))
 }

@@ -40,6 +40,15 @@ const EVENT_TERMS: Array<{ eventType: EventType; phrases: string[] }> = [
   { eventType: 'partnership', phrases: ['strategic partnership', 'partners with', 'partnership announcement', 'integration with', 'integrates with'] },
   { eventType: 'governance_decision', phrases: ['governance vote', 'proposal approved', 'proposal rejected', 'governance proposal'] },
   { eventType: 'network_outage', phrases: ['network outage', 'network is down', 'chain halted', 'block production halted', 'stopped producing blocks'] },
+  { eventType: 'mainnet_launch', phrases: ['mainnet launch', 'launches mainnet', 'mainnet is live', 'mainnet goes live'] },
+  { eventType: 'token_launch', phrases: ['token launch', 'launching our token', 'token generation event', ' tge '] },
+  { eventType: 'airdrop', phrases: ['airdrop announced', 'airdrop claim', 'airdrop eligibility', 'claim the airdrop'] },
+  { eventType: 'protocol_upgrade', phrases: ['protocol upgrade', 'network upgrade', 'hard fork', 'major upgrade'] },
+  { eventType: 'buyback', phrases: ['token buyback', 'buyback program', 'repurchase tokens'] },
+  { eventType: 'token_burn', phrases: ['token burn', 'burning tokens', 'tokens burned'] },
+  { eventType: 'bankruptcy', phrases: ['filed for bankruptcy', 'bankruptcy filing', 'insolvency proceedings', 'is insolvent'] },
+  { eventType: 'trading_halt', phrases: ['trading halted', 'trading suspended', 'suspend trading', 'halt deposits', 'halt withdrawals'] },
+  { eventType: 'depeg', phrases: ['lost its peg', 'stablecoin depeg', 'depegged', 'reserve shortfall'] },
 ]
 
 const DENIAL_PHRASES = [
@@ -64,7 +73,17 @@ function phrasePresent(text: string, phrase: string) {
   return text.includes(normalized(phrase))
 }
 
-function entityMentioned(text: string, entity: LolahEntityDefinition) {
+function entityMentioned(text: string, rawText: string, entity: LolahEntityDefinition) {
+  if (entity.matchMode === 'symbol_strict') {
+    return entity.symbols.some(symbol => {
+      const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      if (symbol.length <= 2) {
+        return new RegExp('(?:\\$' + escaped + '(?:$|[^A-Za-z0-9])|\\(' + escaped
+          + '\\)|\\[' + escaped + '\\]|(?:^|[^A-Za-z0-9])' + escaped + '[-/](?:USDT|USDC)(?:$|[^A-Za-z0-9]))').test(rawText)
+      }
+      return new RegExp('(?:^|[^A-Za-z0-9])\\$?' + escaped + '(?:$|[^A-Za-z0-9])').test(rawText)
+    })
+  }
   const candidates = [...entity.aliases, ...entity.symbols.map(symbol => '$' + symbol), ...entity.symbols]
   return candidates.some(candidate => {
     const normalizedCandidate = normalized(candidate)
@@ -76,7 +95,7 @@ function entityMentioned(text: string, entity: LolahEntityDefinition) {
 function classifyEvent(text: string) {
   if (DENIAL_PHRASES.some(phrase => phrasePresent(text, phrase))) return undefined
   const matches = EVENT_TERMS.filter(definition => definition.phrases.some(phrase => phrasePresent(text, phrase)))
-  return matches.length === 1 ? matches[0].eventType : undefined
+  return matches[0]?.eventType
 }
 
 function validSourceUrl(post: RawXPost) {
@@ -232,7 +251,7 @@ export class LolahNewsScout {
     const eventType = classifyEvent(postText)
     if (!eventType) return { status: 'ignored', reason: 'Post does not contain one unambiguous supported event type.' }
     const allowedEntities = entitiesForSource(this.registry, source)
-    let matchedEntities = allowedEntities.filter(entity => entityMentioned(postText, entity))
+    let matchedEntities = allowedEntities.filter(entity => entityMentioned(postText, post.text, entity))
     if (!matchedEntities.length && source.tier === 'official_project' && allowedEntities.length === 1) {
       matchedEntities = allowedEntities
     }

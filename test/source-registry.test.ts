@@ -13,6 +13,26 @@ test('normalizes a valid curated registry', () => {
   assert.equal(registry.sources[0].username, 'kaito_official')
 })
 
+test('accepts explicit source roles without changing immutable identity checks', () => {
+  const registry = validateSourceRegistry({
+    ...valid,
+    sources: [{ ...valid.sources[0], category: 'foundation' }],
+  })
+  assert.equal(registry.sources[0].category, 'foundation')
+})
+
+test('allows a broad trusted source to cover every curated entity with one exclusive wildcard', () => {
+  const registry = validateSourceRegistry({
+    ...valid,
+    sources: [{ ...valid.sources[0], entityIds: ['*'], category: 'exchange' }],
+  })
+  assert.deepEqual(registry.sources[0].entityIds, ['*'])
+  assert.throws(() => validateSourceRegistry({
+    ...valid,
+    sources: [{ ...valid.sources[0], entityIds: ['*', 'kaito'] }],
+  }), /wildcard/)
+})
+
 test('rejects duplicate immutable author IDs', () => {
   assert.throws(() => validateSourceRegistry({ ...valid, sources: [valid.sources[0], { ...valid.sources[0], username: 'other' }] }), /authorIds/)
 })

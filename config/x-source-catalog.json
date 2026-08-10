@@ -1,0 +1,40 @@
+{
+  "schema": "lolah-x-source-catalog-v1",
+  "entities": [
+    { "id": "btc", "name": "Bitcoin", "aliases": ["Bitcoin"], "symbols": ["BTC"], "hyperliquidMarkets": ["BTC"] },
+    { "id": "eth", "name": "Ethereum", "aliases": ["Ethereum", "Ether"], "symbols": ["ETH"], "hyperliquidMarkets": ["ETH"] },
+    { "id": "sol", "name": "Solana", "aliases": ["Solana"], "symbols": ["SOL"], "hyperliquidMarkets": ["SOL"] },
+    { "id": "hype", "name": "Hyperliquid", "aliases": ["Hyperliquid"], "symbols": ["HYPE"], "hyperliquidMarkets": ["HYPE"] },
+    { "id": "uni", "name": "Uniswap", "aliases": ["Uniswap"], "symbols": ["UNI"], "hyperliquidMarkets": ["UNI"] },
+    { "id": "aave", "name": "Aave", "aliases": ["Aave"], "symbols": ["AAVE"], "hyperliquidMarkets": ["AAVE"] },
+    { "id": "link", "name": "Chainlink", "aliases": ["Chainlink"], "symbols": ["LINK"], "hyperliquidMarkets": ["LINK"] },
+    { "id": "arb", "name": "Arbitrum", "aliases": ["Arbitrum"], "symbols": ["ARB"], "hyperliquidMarkets": ["ARB"] },
+    { "id": "op", "name": "Optimism", "aliases": ["Optimism"], "symbols": ["OP"], "hyperliquidMarkets": ["OP"] },
+    { "id": "avax", "name": "Avalanche", "aliases": ["Avalanche"], "symbols": ["AVAX"], "hyperliquidMarkets": ["AVAX"] },
+    { "id": "bnb", "name": "BNB", "aliases": ["BNB Chain", "Binance Coin"], "symbols": ["BNB"], "hyperliquidMarkets": ["BNB"] },
+    { "id": "doge", "name": "Dogecoin", "aliases": ["Dogecoin"], "symbols": ["DOGE"], "hyperliquidMarkets": ["DOGE"] },
+    { "id": "xrp", "name": "XRP", "aliases": ["Ripple", "XRP Ledger"], "symbols": ["XRP"], "hyperliquidMarkets": ["XRP"] },
+    { "id": "sui", "name": "Sui", "aliases": ["Sui Network"], "symbols": ["SUI"], "hyperliquidMarkets": ["SUI"] },
+    { "id": "ena", "name": "Ethena", "aliases": ["Ethena"], "symbols": ["ENA"], "hyperliquidMarkets": ["ENA"] },
+    { "id": "pendle", "name": "Pendle", "aliases": ["Pendle Finance"], "symbols": ["PENDLE"], "hyperliquidMarkets": ["PENDLE"] },
+    { "id": "ldo", "name": "Lido", "aliases": ["Lido Finance"], "symbols": ["LDO"], "hyperliquidMarkets": ["LDO"] },
+    { "id": "jup", "name": "Jupiter", "aliases": ["Jupiter Exchange"], "symbols": ["JUP"], "hyperliquidMarkets": ["JUP"] },
+    { "id": "kaito", "name": "Kaito", "aliases": ["Kaito AI"], "symbols": ["KAITO"], "hyperliquidMarkets": ["KAITO"] },
+    { "id": "ondo", "name": "Ondo", "aliases": ["Ondo Finance"], "symbols": ["ONDO"], "hyperliquidMarkets": ["ONDO"] },
+    { "id": "tao", "name": "Bittensor", "aliases": ["Bittensor"], "symbols": ["TAO"], "hyperliquidMarkets": ["TAO"] },
+    { "id": "wif", "name": "dogwifhat", "aliases": ["dogwifhat"], "symbols": ["WIF"], "hyperliquidMarkets": ["WIF"] },
+    { "id": "trump", "name": "Official Trump", "aliases": ["Official Trump"], "symbols": ["TRUMP"], "hyperliquidMarkets": ["TRUMP"] },
+    { "id": "virtual", "name": "Virtuals Protocol", "aliases": ["Virtuals Protocol"], "symbols": ["VIRTUAL"], "hyperliquidMarkets": ["VIRTUAL"] }
+  ],
+  "sources": [
+    { "username": "Official_Upbit", "tier": "official_project", "category": "exchange", "entityIds": ["*"], "identityProofUrl": "https://support.upbit.com/hc/ko/articles/49617343307289" },
+    { "username": "CoinbaseMarkets", "tier": "official_project", "category": "exchange", "entityIds": ["*"], "identityProofUrl": "https://www.coinbase.com/blog/coinbase-markets-on-x-your-new-home-for-all-listings" },
+    { "username": "HyperliquidX", "tier": "official_project", "category": "project", "entityIds": ["hype"], "identityProofUrl": "https://hyperliquid.zendesk.com/hc/en-us/articles/15931545575572-What-are-the-official-links-for-Hyperliquid" },
+    { "username": "Uniswap", "tier": "official_project", "category": "project", "entityIds": ["uni"], "identityProofUrl": "https://web.uniswap.org/" },
+    { "username": "solana", "tier": "official_project", "category": "project", "entityIds": ["sol"], "identityProofUrl": "https://solana.com/pl/news/solana-ecosystem-roundup-june-2026" },
+    { "username": "SolanaFndn", "tier": "official_project", "category": "foundation", "entityIds": ["sol"], "identityProofUrl": "https://solana.com/pl/news/solana-ecosystem-roundup-june-2026" },
+    { "username": "ethereum", "tier": "official_project", "category": "foundation", "entityIds": ["eth"], "identityProofUrl": "https://ethereum.org/about/" },
+    { "username": "WuBlockchain", "tier": "trusted_reporter", "category": "crypto_news", "entityIds": ["*"], "identityProofUrl": "https://linktr.ee/wublockchain" },
+    { "username": "SlowMist_Team", "tier": "security_researcher", "category": "security", "entityIds": ["*"], "identityProofUrl": "https://www.slowmist.io/en/" }
+  ]
+}

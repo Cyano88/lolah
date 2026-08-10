@@ -76,9 +76,11 @@ test('fails closed when a restored semantic cluster is tampered with', () => {
   assert.throws(() => new LolahNewsScout(registry, snapshot), /invalid event/)
 })
 
-test('rejects text containing multiple supported event types', () => {
+test('keeps the highest-priority catalyst when one post contains multiple event types', () => {
   const result = new LolahNewsScout(registry).ingest(post({ text: 'Kaito was exploited and will shut down.' }), detectedAt)
-  assert.equal(result.status, 'ignored')
+  assert.equal(result.status, 'new_event')
+  if (result.status !== 'new_event') return
+  assert.equal(result.event.eventType, 'exploit')
 })
 
 test('rejects event denials rather than treating them as events', () => {
@@ -104,4 +106,20 @@ test('a second post from the same source cannot self-corroborate', () => {
 test('does not guess an entity for a multi-entity non-official source', () => {
   const result = new LolahNewsScout(registry).ingest(post({ authorId: '200', text: 'A project will shut down.', username: 'security_one' }), detectedAt)
   assert.equal(result.status, 'ignored')
+})
+
+test('matches automatically discovered markets only as case-sensitive tickers', () => {
+  const dynamic: LolahSourceRegistry = {
+    entities: [
+      { id: 'hl_cys', name: 'CYS', aliases: ['CYS'], symbols: ['CYS'], hyperliquidMarkets: ['CYS'], matchMode: 'symbol_strict' },
+      { id: 'hl_one', name: 'ONE', aliases: ['ONE'], symbols: ['ONE'], hyperliquidMarkets: ['ONE'], matchMode: 'symbol_strict' },
+    ],
+    sources: [{ platform: 'x', authorId: '100', username: 'kaito_official', tier: 'official_project', entityIds: ['*'] }],
+  }
+  const scout = new LolahNewsScout(dynamic)
+  assert.equal(scout.ingest(post({ postId: '40', text: 'We will list cys tomorrow.', sourceUrl: 'https://x.com/kaito_official/status/40' }), detectedAt).status, 'ignored')
+  const result = scout.ingest(post({ postId: '41', text: 'We will list CYS tomorrow.', sourceUrl: 'https://x.com/kaito_official/status/41' }), detectedAt)
+  assert.equal(result.status, 'new_event')
+  if (result.status !== 'new_event') return
+  assert.deepEqual(result.targetMarkets, ['CYS'])
 })

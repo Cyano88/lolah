@@ -33,6 +33,25 @@ The worker is approved for an isolated supervised deployment under the read-only
 
 The source registry is deliberately injected rather than populated with guessed accounts. Exact post receipts and validated semantic event clusters are durable across restarts. Production delivery remains disabled.
 
+## X intelligence worker
+
+The isolated `lolah-x-intelligence` worker has two coverage lanes. Official exchanges, foundations, projects, founders, developers, and regulators are read as a full original-post firehose, so detection does not depend on an announcement using a predicted keyword. Curated crypto-news, research, and security sources are searched through bounded catalyst groups covering listings, exploits, shutdowns, launches, unlocks, airdrops, acquisitions, regulation, outages, upgrades, governance, leadership, depegs, burns, and buybacks.
+
+Every source must include its current numeric X author ID, username, trust tier, role category, permitted entities, and mapped Hyperliquid markets. Returned posts are accepted by author ID rather than handle alone. Unknown accounts and impersonators cannot produce a verified event; non-official reporting requires two distinct curated sources. Compound announcements retain the highest-priority supported catalyst instead of being silently discarded.
+
+Queries are sharded below X's self-serve query-length limit. Poll intervals expand automatically as the registry grows so the configured breadth does not silently exceed the application request budget. Checkpoints advance only after complete pagination, and credentials and pagination cursors are never written to durable state.
+
+The Render blueprint defines this as a second worker with its own disk and state path. It defaults to disabled. Enabling it requires `LOLAH_X_BEARER_TOKEN`, `LOLAH_X_SOURCE_REGISTRY_JSON`, the dedicated PolyDesk context token, and `LOLAH_X_ENABLED=true`. The worker preflights the authenticated PolyDesk read-only bridge before polling. It remains simulation-only and cannot push, sign, trade, bill, or list itself.
+
+The checked-in starter catalog is `config/x-source-catalog.json`. Each handle has a non-X identity-proof URL, a trust tier, a source role, and either an explicit entity scope or the exclusive `*` scope meaning every curated entity. The catalog currently covers 24 verified Hyperliquid markets and nine proof-backed sources. Resolve handles to their current immutable numeric IDs through the official X batch lookup before activation:
+
+    $env:LOLAH_X_BEARER_TOKEN = '<set locally>'
+    npm run x:resolve-sources
+
+Store the resulting registry JSON as the masked Render value `LOLAH_X_SOURCE_REGISTRY_JSON`. Never commit the bearer token or paste it into chat. A failed, partial, renamed, or deleted X identity blocks registry generation rather than silently dropping that source. At worker startup, the registry is expanded from Hyperliquid's official read-only universe so wildcard sources cover every currently available perp. Automatically added markets use strict case-sensitive ticker matching; richer curated names and aliases always take precedence.
+
+No finite source list can guarantee that every crypto event will be captured. Upbit therefore remains on its dedicated lower-latency website feed, while X provides broad complementary coverage. Filtered-stream support and continuous post-event price-reaction tracking are separate follow-up milestones.
+
 ## Upbit historical shadow replay
 
 The replay runner fetches genuine recent Upbit records from CoinListing's public, keyless history endpoint. Receipt timing is explicitly simulated from the provider's sent_time field and never represented as a live measurement. Each supported symbol is converted into the same verified Lolah event contract used by the normal context pipeline.

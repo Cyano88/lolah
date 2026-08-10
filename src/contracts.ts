@@ -13,6 +13,15 @@ export type LolahEventType =
   | 'partnership'
   | 'governance_decision'
   | 'network_outage'
+  | 'mainnet_launch'
+  | 'token_launch'
+  | 'airdrop'
+  | 'protocol_upgrade'
+  | 'buyback'
+  | 'token_burn'
+  | 'bankruptcy'
+  | 'trading_halt'
+  | 'depeg'
 
 export type LolahNewsEvent = {
   schema: 'lolah-news-event-v1'

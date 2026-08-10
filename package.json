@@ -13,7 +13,9 @@
     "shadow:live": "node --import tsx scripts/live-readonly-probe.ts",
     "shadow:staging": "node --import tsx scripts/live-readonly-staging-probe.ts",
     "pipeline:staging": "node --import tsx scripts/live-pipeline-staging.ts",
-    "upbit:worker": "node --import tsx scripts/upbit-listing-worker.ts"
+    "upbit:worker": "node --import tsx scripts/upbit-listing-worker.ts",
+    "x:worker": "node --import tsx scripts/x-intelligence-worker.ts",
+    "x:resolve-sources": "node --import tsx scripts/resolve-x-source-catalog.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
