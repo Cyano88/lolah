@@ -30,6 +30,8 @@ export type UpbitListingEvent = {
   revisedAt: string
   detectedAt: string
   detectionLatencyMs: number
+  providerSentAt?: string
+  transportLatencyMs?: number
   freshness: 'fresh' | 'late'
   tradingStartsAt?: string
   executionAllowed: false

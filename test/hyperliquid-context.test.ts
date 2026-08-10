@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { fetchHyperliquidMarketContext } from '../src/hyperliquid-context.js'
+import {
+  fetchHyperliquidHistoricalReplayContext,
+  fetchHyperliquidMarketContext,
+} from '../src/hyperliquid-context.js'
 
 function response(data: unknown) {
   return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } })
@@ -34,6 +37,9 @@ test('reads an available Hyperliquid perp and calculates current market conditio
   assert.equal(result.dayChangeFraction, -0.090909)
   assert.equal(result.bestBid, 0.499)
   assert.equal(result.bestAsk, 0.501)
+  assert.equal(result.bestBidSizeBase, 5000)
+  assert.equal(result.bestAskSizeBase, 4000)
+  assert.equal(result.nearTouchLiquidityUsd, 4499)
   assert.equal(result.spreadBps, 40)
   assert.deepEqual(requests, [{ type: 'metaAndAssetCtxs' }, { type: 'l2Book', coin: 'KAITO' }])
 })
@@ -52,4 +58,36 @@ test('returns not_found without querying a non-existent order book', async () =>
 test('rejects malformed metadata instead of guessing market availability', async () => {
   const fetcher: typeof fetch = async () => response({ universe: [] })
   await assert.rejects(() => fetchHyperliquidMarketContext('KAITO', fetcher), /invalid market metadata/)
+})
+
+test('reconstructs historical event movement from timestamped candles without inventing liquidity', async () => {
+  const eventAt = new Date('2026-07-31T05:00:08.944Z')
+  const requests: unknown[] = []
+  const fetcher: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body ?? '{}'))
+    requests.push(body)
+    if (body.type === 'metaAndAssetCtxs') {
+      return response([{ universe: [{ name: 'CFX' }] }, [{ markPx: '0.05' }]])
+    }
+    return response([
+      { t: Date.parse('2026-07-31T04:55:00Z'), T: Date.parse('2026-07-31T04:59:59.999Z'), c: '0.04' },
+      { t: Date.parse('2026-07-31T05:00:00Z'), T: Date.parse('2026-07-31T05:04:59.999Z'), c: '0.046' },
+    ])
+  }
+  const result = await fetchHyperliquidHistoricalReplayContext('CFX', eventAt, fetcher)
+  assert.equal(result.contextMode, 'historical_replay')
+  assert.equal(result.eventReferencePrice, 0.04)
+  assert.equal(result.markPrice, 0.046)
+  assert.equal(result.eventMoveFraction, 0.15)
+  assert.equal(result.replayWindowMinutes, 5)
+  assert.equal(result.historicalLiquidityAvailable, false)
+  assert.equal(result.nearTouchLiquidityUsd, undefined)
+  assert.deepEqual(requests, [
+    { type: 'metaAndAssetCtxs' },
+    { type: 'candleSnapshot', req: {
+      coin: 'CFX', interval: '5m',
+      startTime: eventAt.getTime() - 24 * 60 * 60_000,
+      endTime: eventAt.getTime() + 10 * 60_000,
+    } },
+  ])
 })

@@ -84,6 +84,11 @@ function providerEvent(
   if (!Number.isFinite(providerDetectedAt.getTime()) || providerDetectedAt.getTime() > receivedAt.getTime() + 30_000) {
     throw new Error('CoinListing detection time is invalid.')
   }
+  if (!Number.isInteger(payload.sent_time) || Number(payload.sent_time) < 1_500_000_000_000
+    || Number(payload.sent_time) > receivedAt.getTime() + 30_000) {
+    throw new Error('CoinListing sent time is invalid.')
+  }
+  const providerSentAt = new Date(Number(payload.sent_time))
   const revisionId = createHash('sha256').update([noticeId, title].join('\n')).digest('hex').slice(0, 40)
   const latency = Math.max(0, receivedAt.getTime() - providerDetectedAt.getTime())
   return {
@@ -101,6 +106,8 @@ function providerEvent(
     revisedAt: providerDetectedAt.toISOString(),
     detectedAt: receivedAt.toISOString(),
     detectionLatencyMs: latency,
+    providerSentAt: providerSentAt.toISOString(),
+    transportLatencyMs: Math.max(0, receivedAt.getTime() - providerSentAt.getTime()),
     freshness: latency <= actionableLatencyMs ? 'fresh' : 'late',
     executionAllowed: false,
   }

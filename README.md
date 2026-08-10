@@ -17,7 +17,7 @@ It does not generate a direction, size, order, trade command, notification, wall
 
 ## Upbit first-signal monitor
 
-The dedicated Upbit path polls Upbit's official announcement feed every second with ETag revalidation. It treats the website as the trigger authority, measures revision-to-detection latency, parses both supported listing-title formats, and fetches announcement details immediately. A revision observed within the configured 15-second window may create a simulation-only early-listing draft; older observations are recorded but suppressed as stale alpha. Notice edits supersede earlier prepared drafts.
+The deployed Upbit path consumes CoinListing's raw Seoul WebSocket feed and accepts only records linked to an official Upbit notice. It independently validates the listing title, symbols, quote markets, notice identity, provider timing, and receipt timing. A revision observed within the configured 15-second window may create a simulation-only early-listing draft; older observations are recorded but suppressed as stale alpha. Notice edits supersede earlier prepared drafts.
 
 Upbit monitor state, drafts, wildcard or symbol-scoped watches, and recipient-bound delivery leases are persisted atomically in a separate state file. Authenticated routes expose `/v1/upbit/watches`, `/v1/upbit/alerts/pull`, and owner-only acknowledgement/cancellation variants. Access tokens and raw idempotency keys are never persisted. A matching fresh event can be pulled only by the same authenticated agent and session; delivery and execution remain disabled.
 
@@ -28,6 +28,19 @@ The continuous worker requires an explicit durable state path:
 The worker is approved for an isolated supervised deployment under the read-only milestone. The current target is a separate Render background worker in PolyDesk's project and region, defined by `render.yaml`; it is not installed inside PolyDesk's web instance. See `docs/VPS_DEPLOYMENT.md`. Public alert routes remain disabled until official OKX session verification is configured.
 
 The source registry is deliberately injected rather than populated with guessed accounts. Exact post receipts and validated semantic event clusters are durable across restarts. Production delivery remains disabled.
+
+## Upbit historical shadow replay
+
+The replay runner fetches genuine recent Upbit records from CoinListing's public, keyless history endpoint. Receipt timing is explicitly simulated from the provider's sent_time field and never represented as a live measurement. Each supported symbol is converted into the same verified Lolah event contract used by the normal context pipeline.
+
+Hyperliquid replay pricing uses timestamped five-minute candles around the listing time. It compares the candle immediately before the event with the candle containing the event and reports the window explicitly. Historical order books are unavailable, so historical liquidity remains unknown rather than being reconstructed from today's book. PolyDesk matching runs through the isolated loopback staging route until its production service is reviewed and enabled.
+
+The assessment is non-executing and can return positive_catalyst_watch, chasing_risk, weakness_watch, market_unavailable, risk_blocked, or context_unavailable. A ten-percent or larger event-window rise is classified as chasing risk. Every replay keeps simulationOnly true, sendAllowed false, and executionAllowed false.
+
+Run the latest supported listing directly, or select a symbol still present in the provider's recent history:
+
+    node --import tsx scripts/replay-latest-upbit-listing.ts
+    LOLAH_REPLAY_SYMBOL=CFX node --import tsx scripts/replay-latest-upbit-listing.ts
 
 ## Durable watch-state gate
 

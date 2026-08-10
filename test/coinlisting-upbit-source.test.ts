@@ -34,6 +34,8 @@ test('parses a raw Upbit listing frame and measures provider-to-Lolah latency', 
   assert.deepEqual(event.quoteMarkets, ['BTC', 'USDT'])
   assert.equal(event.sourceUrl, 'https://www.upbit.com/service_center/notice?id=6458')
   assert.equal(event.detectionLatencyMs, 9_750)
+  assert.equal(event.providerSentAt, '2026-08-10T02:05:54.500Z')
+  assert.equal(event.transportLatencyMs, 9_500)
   assert.equal(event.freshness, 'fresh')
   assert.equal(event.executionAllowed, false)
 })
@@ -67,6 +69,10 @@ test('persists revisions and skips an exact provider replay', async () => {
 test('marks an otherwise valid provider event late at actual receipt time', () => {
   const event = parseCoinListingFrame(frame({}, new Date('2026-08-10T02:07:00Z')))
   assert.equal(event?.freshness, 'late')
+})
+
+test('rejects an invalid provider sent time', () => {
+  assert.throws(() => parseCoinListingFrame(frame({ sent_time: 0 })), /sent time/)
 })
 
 test('rejects a non-allowlisted endpoint without exposing the provider key', async () => {

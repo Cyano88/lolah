@@ -72,7 +72,15 @@ export type HyperliquidMarketContext = {
   openInterestBase?: number
   bestBid?: number
   bestAsk?: number
+  bestBidSizeBase?: number
+  bestAskSizeBase?: number
+  nearTouchLiquidityUsd?: number
   spreadBps?: number
+  contextMode?: 'live' | 'historical_replay'
+  eventReferencePrice?: number
+  eventMoveFraction?: number
+  replayWindowMinutes?: number
+  historicalLiquidityAvailable?: false
 }
 
 export type LolahEventScan = {
