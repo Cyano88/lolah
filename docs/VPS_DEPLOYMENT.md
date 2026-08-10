@@ -4,9 +4,9 @@
 
 Live workspace inspection on 2026-08-10 confirmed that PolyDesk is a managed Render web service in the Oregon region, not a root-access VPS. Lolah must therefore use a separate Render background worker in the same project/region. It must not be installed inside, or added to the start command of, the PolyDesk web service.
 
-`render.yaml` defines `lolah-upbit` with its own process and persistent disk. The worker exposes no public port and does not require OKX, wallet, X, PolyDesk, or trading credentials.
+`render.yaml` defines `lolah-upbit` with its own process and persistent disk. The worker exposes no public port and does not require OKX, wallet, X, PolyDesk, or trading credentials. The repository is public at `https://github.com/Cyano88/lolah`.
 
-Deployment still requires a dedicated Git repository because this local Lolah workspace is not currently a Git checkout. Use a private standalone repository; do not copy Lolah into the PolyDesk repository merely to reuse its deployment connection.
+Do not copy Lolah into the PolyDesk repository merely to reuse its deployment connection.
 
 The systemd instructions below are retained only for a future genuine root-access VPS. They do not apply to the current Render target.
 
@@ -20,7 +20,7 @@ Lolah may share the physical host used by PolyDesk, but it must remain operation
 - private environment: `/etc/lolah/upbit.env`
 - daemon: `lolah-upbit.service`
 
-The worker reads only Upbit's official public announcement API. It persists fresh or stale revision decisions and simulation-only pull records. It cannot push messages, sign, trade, broadcast, bill, or register an OKX service.
+The deployed worker consumes only an authorized relay of Upbit website notices. Every relay envelope must carry an Ed25519 signature, monotonic sequence, and official Upbit notice URL. Lolah stores only the provider public key, recomputes freshness at receipt, and rejects unsigned, replayed, conflicting, future, or stale envelopes. Direct polling of Upbit's consumer website is not enabled in deployed mode. The worker persists fresh or stale revision decisions and simulation-only pull records. It cannot push messages, sign, trade, broadcast, bill, or register an OKX service.
 
 ## Root-access VPS alternative: preflight
 

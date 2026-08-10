@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { UpbitListingWorkerStore, runUpbitListingWorkerCycle } from '../src/upbit-listing-worker.js'
+import { UpbitListingWorkerStore, runUpbitListingWorkerCycle, upbitRetryDelayMs } from '../src/upbit-listing-worker.js'
 
 const announcement = {
   success: true,
@@ -62,6 +62,13 @@ test('atomically persists a fresh alert and monitor revision across restart', as
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
+})
+
+test('uses bounded exponential backoff for upstream failures', () => {
+  assert.equal(upbitRetryDelayMs(1), 1_000)
+  assert.equal(upbitRetryDelayMs(2), 2_000)
+  assert.equal(upbitRetryDelayMs(10), 300_000)
+  assert.equal(upbitRetryDelayMs(100), 300_000)
 })
 
 test('records but does not prepare a delayed listing alert', async () => {

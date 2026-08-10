@@ -7,6 +7,7 @@ import {
   type UpbitListingMonitorSnapshot,
   type UpbitPollResult,
 } from './upbit-listing-monitor.js'
+import type { UpbitListingSource, UpbitListingSourceSnapshot } from './upbit-listing-source.js'
 
 const STATE_SCHEMA = 'lolah-upbit-worker-state-v2'
 const MAX_ALERTS = 10_000
@@ -54,7 +55,7 @@ export type UpbitListingDelivery = {
 
 type WorkerState = {
   schema: typeof STATE_SCHEMA
-  monitor?: UpbitListingMonitorSnapshot
+  monitor?: UpbitListingSourceSnapshot
   alerts: UpbitListingAlertDraft[]
   lateRevisionIds: string[]
   watches: UpbitListingWatch[]
@@ -173,7 +174,7 @@ function assertState(value: unknown): asserts value is WorkerState {
     }
   }
   if (state.monitor) {
-    if (state.monitor.schema !== 'lolah-upbit-monitor-state-v1'
+    if (!['lolah-upbit-monitor-state-v1', 'lolah-upbit-relay-state-v1'].includes(state.monitor.schema)
       || !Array.isArray(state.monitor.revisions) || state.monitor.revisions.length > 5_000) {
       throw new Error('Upbit worker monitor state is invalid.')
     }
@@ -313,8 +314,9 @@ export class UpbitListingWorkerStore {
     })
   }
 
-  async commitPoll(snapshot: UpbitListingMonitorSnapshot, events: UpbitListingEvent[], now = new Date()) {
-    if (!Number.isFinite(now.getTime()) || snapshot.schema !== 'lolah-upbit-monitor-state-v1'
+  async commitPoll(snapshot: UpbitListingSourceSnapshot, events: UpbitListingEvent[], now = new Date()) {
+    if (!Number.isFinite(now.getTime())
+      || !['lolah-upbit-monitor-state-v1', 'lolah-upbit-relay-state-v1'].includes(snapshot.schema)
       || events.some(event => !validEvent(event))) {
       throw new Error('Upbit worker poll commit is invalid.')
     }
@@ -462,14 +464,14 @@ export async function runUpbitListingWorkerCycle(input: {
   fetcher?: typeof fetch
   now?: () => Date
   actionableLatencyMs?: number
+  sourceFactory?: (snapshot?: UpbitListingSourceSnapshot) => UpbitListingSource
 }): Promise<UpbitListingWorkerCycleResult> {
   const now = input.now ?? (() => new Date())
   const detectedAt = now()
-  const monitor = new UpbitListingMonitor(
-    input.fetcher ?? fetch,
-    await input.store.getMonitorSnapshot(),
-    input.actionableLatencyMs,
-  )
+  const snapshot = await input.store.getMonitorSnapshot()
+  const monitor = input.sourceFactory
+    ? input.sourceFactory(snapshot)
+    : new UpbitListingMonitor(input.fetcher ?? fetch, snapshot as UpbitListingMonitorSnapshot | undefined, input.actionableLatencyMs)
   const result = await monitor.poll(detectedAt)
   const commit = await input.store.commitPoll(monitor.snapshot(), result.events, now())
   return {
@@ -490,12 +492,24 @@ export async function runContinuousUpbitListingWorker(input: {
   fetcher?: typeof fetch
   signal: AbortSignal
   onCycle?: (result: UpbitListingWorkerCycleResult) => void
+  onError?: (failure: { consecutiveFailures: number; retryAfterMs: number; category: 'upstream_unavailable' }) => void
+  sourceFactory?: (snapshot?: UpbitListingSourceSnapshot) => UpbitListingSource
 }) {
+  let consecutiveFailures = 0
   while (!input.signal.aborted) {
     const started = Date.now()
-    const result = await runUpbitListingWorkerCycle(input)
-    input.onCycle?.(result)
-    const remaining = Math.max(0, result.nextPollInMs - (Date.now() - started))
+    let nextPollInMs: number
+    try {
+      const result = await runUpbitListingWorkerCycle(input)
+      consecutiveFailures = 0
+      input.onCycle?.(result)
+      nextPollInMs = result.nextPollInMs
+    } catch {
+      consecutiveFailures += 1
+      nextPollInMs = upbitRetryDelayMs(consecutiveFailures)
+      input.onError?.({ consecutiveFailures, retryAfterMs: nextPollInMs, category: 'upstream_unavailable' })
+    }
+    const remaining = Math.max(0, nextPollInMs - (Date.now() - started))
     if (remaining > 0) {
       await new Promise<void>(resolveWait => {
         const timer = setTimeout(resolveWait, remaining)
@@ -506,4 +520,9 @@ export async function runContinuousUpbitListingWorker(input: {
       })
     }
   }
+}
+
+export function upbitRetryDelayMs(consecutiveFailures: number) {
+  if (!Number.isInteger(consecutiveFailures) || consecutiveFailures < 1) throw new Error('Upbit failure count is invalid.')
+  return Math.min(5 * 60_000, 1_000 * (2 ** Math.min(18, consecutiveFailures - 1)))
 }
