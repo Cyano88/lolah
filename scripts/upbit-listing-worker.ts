@@ -11,6 +11,7 @@ import {
 import type { UpbitCoinListingSnapshot } from '../src/upbit-listing-source.js'
 import { enrichLiveUpbitListing } from '../src/upbit-live-enrichment.js'
 import { validateLiveShadowPolydeskEndpoint } from '../src/live-shadow-runner.js'
+import { preflightPolydeskMarketContext } from '../src/polydesk-client.js'
 
 const statePath = String(process.env.LOLAH_UPBIT_STATE_PATH ?? '').trim()
 if (!statePath) throw new Error('LOLAH_UPBIT_STATE_PATH is required.')
@@ -50,6 +51,53 @@ if (enrichmentEnabled && (!polydeskBearerToken || polydeskBearerToken.length < 3
   throw new Error('LOLAH_POLYDESK_CONTEXT_TOKEN is required.')
 }
 
+function waitForRetry(milliseconds: number) {
+  return new Promise<void>(resolve => {
+    const finish = () => {
+      clearTimeout(timer)
+      controller.signal.removeEventListener('abort', finish)
+      resolve()
+    }
+    const timer = setTimeout(finish, milliseconds)
+    controller.signal.addEventListener('abort', finish, { once: true })
+  })
+}
+
+async function runEnrichmentAfterPreflight(endpoint: string, bearerToken: string) {
+  let consecutiveFailures = 0
+  while (!controller.signal.aborted) {
+    try {
+      await preflightPolydeskMarketContext(endpoint, bearerToken)
+      console.log(JSON.stringify({ component: 'upbit_enrichment', state: 'preflight_ok' }))
+      break
+    } catch {
+      consecutiveFailures += 1
+      const retryAfterMs = Math.min(60_000, 1_000 * (2 ** Math.min(consecutiveFailures - 1, 6)))
+      console.error(JSON.stringify({
+        component: 'upbit_enrichment',
+        state: 'preflight_unavailable',
+        consecutiveFailures,
+        retryAfterMs,
+      }))
+      await waitForRetry(retryAfterMs)
+    }
+  }
+  if (controller.signal.aborted) return
+  console.log(JSON.stringify({ component: 'upbit_enrichment', state: 'enabled' }))
+  await runContinuousUpbitEnrichmentWorker({
+    store,
+    signal: controller.signal,
+    enrich: (event, symbol) => enrichLiveUpbitListing({
+      event,
+      symbol,
+      polydeskEndpoint: endpoint,
+      polydeskBearerToken: bearerToken,
+    }),
+    onCycle: result => console.log(JSON.stringify(result)),
+    onError: failure => console.error(JSON.stringify(failure)),
+  })
+}
+
 const listingWorker = runContinuousUpbitListingWorker({
   store,
   signal: controller.signal,
@@ -67,18 +115,7 @@ if (!enrichmentEnabled) {
   await listingWorker
 } else {
   if (!polydeskEndpoint) throw new Error('LOLAH_POLYDESK_CONTEXT_ENDPOINT is required.')
-  const enrichmentWorker = runContinuousUpbitEnrichmentWorker({
-    store,
-    signal: controller.signal,
-    enrich: (event, symbol) => enrichLiveUpbitListing({
-      event,
-      symbol,
-      polydeskEndpoint,
-      polydeskBearerToken,
-    }),
-    onCycle: result => console.log(JSON.stringify(result)),
-    onError: failure => console.error(JSON.stringify(failure)),
-  })
-  console.log(JSON.stringify({ component: 'upbit_enrichment', state: 'enabled' }))
+  if (!polydeskBearerToken) throw new Error('LOLAH_POLYDESK_CONTEXT_TOKEN is required.')
+  const enrichmentWorker = runEnrichmentAfterPreflight(polydeskEndpoint, polydeskBearerToken)
   await Promise.all([listingWorker, enrichmentWorker])
 }

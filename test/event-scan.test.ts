@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { HyperliquidMarketContext, LolahNewsEvent, PolydeskMarketContext } from '../src/contracts.js'
 import { scanLolahEvent } from '../src/event-scan.js'
-import { requestPolydeskMarketContext } from '../src/polydesk-client.js'
+import {
+  preflightPolydeskMarketContext,
+  requestPolydeskMarketContext,
+} from '../src/polydesk-client.js'
 
 const now = new Date('2026-08-09T14:32:00.000Z')
 const event: LolahNewsEvent = {
@@ -77,6 +80,38 @@ test('never sends a context token to a noncanonical endpoint', async () => {
     'p'.repeat(40),
   ), /not allowlisted/)
   assert.equal(calls, 0)
+})
+
+test('preflights the authenticated read-only bridge without sending an event', async () => {
+  const token = 'p'.repeat(40)
+  let url = ''
+  let method = ''
+  let authorization = ''
+  let body: unknown = 'not-observed'
+  const result = await preflightPolydeskMarketContext(
+    'https://polydesk.trade/api/agent/polymarket-context',
+    token,
+    async (input, init) => {
+      url = String(input)
+      method = String(init?.method)
+      authorization = String((init?.headers as Record<string, string>).Authorization)
+      body = init?.body
+      return new Response(JSON.stringify({
+        ok: true,
+        data: {
+          schema: 'polydesk-market-context-health-v1',
+          service: 'polydesk',
+          readOnly: true,
+          executionAllowed: false,
+        },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    },
+  )
+  assert.equal(url, 'https://polydesk.trade/api/agent/polymarket-context/health')
+  assert.equal(method, 'GET')
+  assert.equal(authorization, `Bearer ${token}`)
+  assert.equal(body, undefined)
+  assert.equal(result.executionAllowed, false)
 })
 
 test('returns context_ready without creating a trade command', async () => {

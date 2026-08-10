@@ -2,6 +2,13 @@ import type { LolahNewsEvent, PolydeskMarketContext } from './contracts.js'
 
 type FetchLike = typeof fetch
 
+export type PolydeskMarketContextHealth = {
+  schema: 'polydesk-market-context-health-v1'
+  service: 'polydesk'
+  readOnly: true
+  executionAllowed: false
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
@@ -27,16 +34,50 @@ function endpointUrl(value: string, bearerToken: string) {
   return parsed.toString()
 }
 
+function contextToken(value: string) {
+  const token = String(value).trim()
+  if (token.length < 32 || token.length > 8_192) {
+    throw new Error('PolyDesk context authorization is not configured.')
+  }
+  return token
+}
+
+export async function preflightPolydeskMarketContext(
+  endpoint: string,
+  bearerToken: string,
+  fetcher: FetchLike = fetch,
+): Promise<PolydeskMarketContextHealth> {
+  const token = contextToken(bearerToken)
+  const healthUrl = new URL(endpointUrl(endpoint, token))
+  healthUrl.pathname += '/health'
+  const response = await fetcher(healthUrl.toString(), {
+    method: 'GET',
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!response.ok) throw new Error('PolyDesk context health failed with HTTP ' + response.status + '.')
+  const envelope: unknown = await response.json()
+  if (!isRecord(envelope) || envelope.ok !== true || !isRecord(envelope.data)) {
+    throw new Error('PolyDesk returned an invalid health envelope.')
+  }
+  const data = envelope.data
+  if (data.schema !== 'polydesk-market-context-health-v1'
+    || data.service !== 'polydesk'
+    || data.readOnly !== true
+    || data.executionAllowed !== false) {
+    throw new Error('PolyDesk returned an unsupported health schema.')
+  }
+  return data as PolydeskMarketContextHealth
+}
+
 export async function requestPolydeskMarketContext(
   endpoint: string,
   event: LolahNewsEvent,
   fetcher: FetchLike = fetch,
   bearerToken = '',
 ): Promise<PolydeskMarketContext> {
-  const token = String(bearerToken).trim()
-  if (token && (token.length < 32 || token.length > 8_192)) {
-    throw new Error('PolyDesk context authorization is not configured.')
-  }
+  const rawToken = String(bearerToken).trim()
+  const token = rawToken ? contextToken(rawToken) : ''
   const response = await fetcher(endpointUrl(endpoint, token), {
     method: 'POST',
     headers: {
