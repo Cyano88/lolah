@@ -1,10 +1,16 @@
-import { UpbitListingWorkerStore, runContinuousUpbitListingWorker } from '../src/upbit-listing-worker.js'
+import {
+  UpbitListingWorkerStore,
+  runContinuousUpbitEnrichmentWorker,
+  runContinuousUpbitListingWorker,
+} from '../src/upbit-listing-worker.js'
 import {
   COINLISTING_UPBIT_ENDPOINT,
   CoinListingUpbitSource,
   coinListingFrames,
 } from '../src/coinlisting-upbit-source.js'
 import type { UpbitCoinListingSnapshot } from '../src/upbit-listing-source.js'
+import { enrichLiveUpbitListing } from '../src/upbit-live-enrichment.js'
+import { validateLiveShadowPolydeskEndpoint } from '../src/live-shadow-runner.js'
 
 const statePath = String(process.env.LOLAH_UPBIT_STATE_PATH ?? '').trim()
 if (!statePath) throw new Error('LOLAH_UPBIT_STATE_PATH is required.')
@@ -30,7 +36,15 @@ const coinListing = new CoinListingUpbitSource(
   snapshot?.schema === 'lolah-upbit-coinlisting-state-v1' ? snapshot as UpbitCoinListingSnapshot : undefined,
 )
 
-await runContinuousUpbitListingWorker({
+const enrichmentEnabled = String(process.env.LOLAH_UPBIT_ENRICHMENT_ENABLED ?? '').trim() === 'true'
+const polydeskEndpoint = enrichmentEnabled
+  ? validateLiveShadowPolydeskEndpoint(
+      String(process.env.LOLAH_POLYDESK_CONTEXT_ENDPOINT ?? '').trim(),
+      'production_shadow',
+    )
+  : undefined
+
+const listingWorker = runContinuousUpbitListingWorker({
   store,
   signal: controller.signal,
   source: coinListing,
@@ -41,3 +55,19 @@ await runContinuousUpbitListingWorker({
   },
   onError: failure => console.error(JSON.stringify(failure)),
 })
+
+if (!enrichmentEnabled) {
+  console.log(JSON.stringify({ component: 'upbit_enrichment', state: 'disabled' }))
+  await listingWorker
+} else {
+  if (!polydeskEndpoint) throw new Error('LOLAH_POLYDESK_CONTEXT_ENDPOINT is required.')
+  const enrichmentWorker = runContinuousUpbitEnrichmentWorker({
+    store,
+    signal: controller.signal,
+    enrich: (event, symbol) => enrichLiveUpbitListing({ event, symbol, polydeskEndpoint }),
+    onCycle: result => console.log(JSON.stringify(result)),
+    onError: failure => console.error(JSON.stringify(failure)),
+  })
+  console.log(JSON.stringify({ component: 'upbit_enrichment', state: 'enabled' }))
+  await Promise.all([listingWorker, enrichmentWorker])
+}

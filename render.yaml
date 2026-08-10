@@ -20,3 +20,7 @@ services:
         value: wss://seoul.coinlisting.pro/feed
       - key: LOLAH_COINLISTING_KEY
         sync: false
+      - key: LOLAH_UPBIT_ENRICHMENT_ENABLED
+        value: 'false'
+      - key: LOLAH_POLYDESK_CONTEXT_ENDPOINT
+        value: https://polydesk.trade/api/agent/polymarket-context

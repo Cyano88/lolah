@@ -17,7 +17,7 @@ export type CoinListingHistoryItem = {
   coins?: string[]
 }
 
-export type UpbitReplayAssessment = {
+export type UpbitMarketAssessment = {
   symbol: string
   targetMarket: string
   state: LolahEventScan['state'] | 'provider_unavailable'
@@ -46,7 +46,7 @@ export type UpbitHistoricalReplayResult = {
     polydesk: 'current_active_markets'
     historicalLiquidityAvailable: false
   }
-  assessments: UpbitReplayAssessment[]
+  assessments: UpbitMarketAssessment[]
   simulationOnly: true
   sendAllowed: false
   executionAllowed: false
@@ -117,13 +117,17 @@ export function upbitListingNewsEvent(event: UpbitListingEvent, symbol: string):
   }
 }
 
-function liquidity(context: HyperliquidMarketContext): UpbitReplayAssessment['liquidityAssessment'] {
+function liquidity(context: HyperliquidMarketContext): UpbitMarketAssessment['liquidityAssessment'] {
   if (context.marketStatus !== 'available'
     || context.nearTouchLiquidityUsd === undefined || context.spreadBps === undefined) return 'unknown'
   return context.nearTouchLiquidityUsd < 10_000 || context.spreadBps > 100 ? 'thin' : 'adequate'
 }
 
-function assessment(event: UpbitListingEvent, symbol: string, scan: LolahEventScan): UpbitReplayAssessment {
+export function assessUpbitListingScan(
+  event: UpbitListingEvent,
+  symbol: string,
+  scan: LolahEventScan,
+): UpbitMarketAssessment {
   const common = {
     symbol, targetMarket: symbol, state: scan.state,
     liquidityAssessment: liquidity(scan.hyperliquid), scan,
@@ -174,7 +178,7 @@ export async function runUpbitHistoricalShadowReplay(input: {
       const scan = await input.scan({
         event: upbitListingNewsEvent(event, symbol), targetMarket: symbol, maxNewsAgeSeconds: 600,
       })
-      return assessment(event, symbol, scan)
+      return assessUpbitListingScan(event, symbol, scan)
     } catch {
       return {
         symbol, targetMarket: symbol, state: 'provider_unavailable' as const,

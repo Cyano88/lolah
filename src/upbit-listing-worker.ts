@@ -8,11 +8,13 @@ import {
   type UpbitPollResult,
 } from './upbit-listing-monitor.js'
 import type { UpbitListingSource, UpbitListingSourceSnapshot } from './upbit-listing-source.js'
+import type { UpbitMarketAssessment } from './upbit-shadow-replay.js'
 
-const STATE_SCHEMA = 'lolah-upbit-worker-state-v2'
+const STATE_SCHEMA = 'lolah-upbit-worker-state-v3'
 const MAX_ALERTS = 10_000
 const MAX_SUBSCRIPTIONS = 10_000
 const MAX_DELIVERIES = 20_000
+const MAX_ENRICHMENT_JOBS = 20_000
 const WRITE_QUEUES = new Map<string, Promise<void>>()
 
 export type UpbitListingAlertDraft = {
@@ -22,9 +24,25 @@ export type UpbitListingAlertDraft = {
   alertClass: 'early_listing' | 'listing_update'
   status: 'prepared' | 'superseded'
   preparedAt: string
+  enrichmentStatus: 'pending' | 'complete'
+  assessments: UpbitMarketAssessment[]
   simulationOnly: true
   sendAllowed: false
   executionAllowed: false
+}
+
+export type UpbitEnrichmentJob = {
+  schema: 'lolah-upbit-enrichment-job-v1'
+  jobId: string
+  draftId: string
+  event: UpbitListingEvent
+  symbol: string
+  status: 'pending' | 'in_progress' | 'completed'
+  attemptCount: number
+  nextAttemptAt: string
+  leaseUntil?: string
+  createdAt: string
+  updatedAt: string
 }
 
 export type UpbitListingWatch = {
@@ -60,6 +78,7 @@ type WorkerState = {
   lateRevisionIds: string[]
   watches: UpbitListingWatch[]
   deliveries: UpbitListingDelivery[]
+  enrichmentJobs: UpbitEnrichmentJob[]
 }
 
 export type UpbitListingWorkerCycleResult = {
@@ -74,8 +93,19 @@ export type UpbitListingWorkerCycleResult = {
   executionAllowed: false
 }
 
+export type UpbitEnrichmentCycleResult = {
+  schema: 'lolah-upbit-enrichment-cycle-v1'
+  claimed: number
+  completed: number
+  retrying: number
+  unavailableFinalized: number
+  simulationOnly: true
+  sendAllowed: false
+  executionAllowed: false
+}
+
 function emptyState(): WorkerState {
-  return { schema: STATE_SCHEMA, alerts: [], lateRevisionIds: [], watches: [], deliveries: [] }
+  return { schema: STATE_SCHEMA, alerts: [], lateRevisionIds: [], watches: [], deliveries: [], enrichmentJobs: [] }
 }
 
 function cleanId(value: string, label: string) {
@@ -111,14 +141,42 @@ function validEvent(event: UpbitListingEvent) {
     && event.executionAllowed === false
 }
 
+function validAssessment(value: UpbitMarketAssessment) {
+  return value && /^[A-Z0-9][A-Z0-9._-]{0,19}$/.test(value.symbol)
+    && value.targetMarket === value.symbol
+    && ['context_ready', 'watch', 'no_trade', 'provider_unavailable'].includes(value.state)
+    && ['positive_catalyst_watch', 'chasing_risk', 'weakness_watch', 'market_unavailable',
+      'risk_blocked', 'context_unavailable'].includes(value.marketPosture)
+    && ['adequate', 'thin', 'unknown'].includes(value.liquidityAssessment)
+    && typeof value.reason === 'string' && value.reason.length > 0 && value.reason.length <= 500
+    && value.simulationOnly === true && value.sendAllowed === false && value.executionAllowed === false
+    && (!value.scan || (value.scan.eventId.startsWith('evt_upbit_')
+      && value.scan.executionAllowed === false))
+}
+
+function unavailableAssessment(symbol: string): UpbitMarketAssessment {
+  return {
+    symbol,
+    targetMarket: symbol,
+    state: 'provider_unavailable',
+    marketPosture: 'context_unavailable',
+    liquidityAssessment: 'unknown',
+    reason: 'Live context remained unavailable after bounded retries.',
+    simulationOnly: true,
+    sendAllowed: false,
+    executionAllowed: false,
+  }
+}
+
 function assertState(value: unknown): asserts value is WorkerState {
   if (!value || typeof value !== 'object') throw new Error('Upbit worker state is invalid.')
   const state = value as Partial<WorkerState>
   if (state.schema !== STATE_SCHEMA || !Array.isArray(state.alerts)
     || !Array.isArray(state.lateRevisionIds) || !Array.isArray(state.watches)
-    || !Array.isArray(state.deliveries) || state.alerts.length > MAX_ALERTS
+    || !Array.isArray(state.deliveries) || !Array.isArray(state.enrichmentJobs)
+    || state.alerts.length > MAX_ALERTS
     || state.lateRevisionIds.length > MAX_ALERTS || state.watches.length > MAX_SUBSCRIPTIONS
-    || state.deliveries.length > MAX_DELIVERIES) {
+    || state.deliveries.length > MAX_DELIVERIES || state.enrichmentJobs.length > MAX_ENRICHMENT_JOBS) {
     throw new Error('Upbit worker state is invalid.')
   }
   if (new Set(state.lateRevisionIds).size !== state.lateRevisionIds.length
@@ -132,6 +190,9 @@ function assertState(value: unknown): asserts value is WorkerState {
       || !['early_listing', 'listing_update'].includes(alert.alertClass)
       || !['prepared', 'superseded'].includes(alert.status)
       || !Number.isFinite(Date.parse(alert.preparedAt))
+      || !['pending', 'complete'].includes(alert.enrichmentStatus)
+      || !Array.isArray(alert.assessments) || alert.assessments.length > 100
+      || alert.assessments.some(item => !validAssessment(item))
       || alert.simulationOnly !== true || alert.sendAllowed !== false
       || alert.executionAllowed !== false) {
       throw new Error('Upbit worker alert draft is invalid.')
@@ -173,6 +234,24 @@ function assertState(value: unknown): asserts value is WorkerState {
       throw new Error('Upbit worker inactive delivery must not retain a lease.')
     }
   }
+  for (const job of state.enrichmentJobs) {
+    if (job.schema !== 'lolah-upbit-enrichment-job-v1'
+      || !/^upbit_enrich_[a-f0-9]{40}$/.test(job.jobId)
+      || !/^upbit_draft_[a-f0-9]{40}$/.test(job.draftId)
+      || !validEvent(job.event) || !job.event.symbols.includes(job.symbol)
+      || !['pending', 'in_progress', 'completed'].includes(job.status)
+      || !Number.isInteger(job.attemptCount) || job.attemptCount < 0 || job.attemptCount > 5
+      || !Number.isFinite(Date.parse(job.nextAttemptAt))
+      || !Number.isFinite(Date.parse(job.createdAt)) || !Number.isFinite(Date.parse(job.updatedAt))) {
+      throw new Error('Upbit enrichment job is invalid.')
+    }
+    if (job.leaseUntil && !Number.isFinite(Date.parse(job.leaseUntil))) {
+      throw new Error('Upbit enrichment lease is invalid.')
+    }
+    if (job.status === 'in_progress' !== Boolean(job.leaseUntil)) {
+      throw new Error('Upbit enrichment lease state is invalid.')
+    }
+  }
   if (state.monitor) {
     if (!['lolah-upbit-monitor-state-v1', 'lolah-upbit-coinlisting-state-v1'].includes(state.monitor.schema)
       || !Array.isArray(state.monitor.revisions) || state.monitor.revisions.length > 5_000) {
@@ -188,6 +267,13 @@ function draftId(event: UpbitListingEvent) {
     .slice(0, 40)
 }
 
+function enrichmentJobId(event: UpbitListingEvent, symbol: string) {
+  return 'upbit_enrich_' + createHash('sha256')
+    .update(event.eventId + ':' + event.revisionId + ':' + symbol)
+    .digest('hex')
+    .slice(0, 40)
+}
+
 export class UpbitListingWorkerStore {
   private readonly filePath: string
 
@@ -199,8 +285,23 @@ export class UpbitListingWorkerStore {
   private async load() {
     try {
       let state: unknown = JSON.parse(await readFile(this.filePath, 'utf8'))
-      if (state && typeof state === 'object' && (state as { schema?: string }).schema === 'lolah-upbit-worker-state-v1') {
-        state = { ...(state as Record<string, unknown>), schema: STATE_SCHEMA, watches: [], deliveries: [] }
+      if (state && typeof state === 'object'
+        && ['lolah-upbit-worker-state-v1', 'lolah-upbit-worker-state-v2']
+          .includes(String((state as { schema?: string }).schema))) {
+        const previous = state as Record<string, unknown>
+        const oldAlerts = Array.isArray(previous.alerts) ? previous.alerts : []
+        state = {
+          ...previous,
+          schema: STATE_SCHEMA,
+          watches: Array.isArray(previous.watches) ? previous.watches : [],
+          deliveries: Array.isArray(previous.deliveries) ? previous.deliveries : [],
+          enrichmentJobs: [],
+          alerts: oldAlerts.map(alert => ({
+            ...(alert as Record<string, unknown>),
+            enrichmentStatus: 'complete',
+            assessments: [],
+          })),
+        }
       }
       assertState(state)
       return state
@@ -340,6 +441,13 @@ export class UpbitListingWorkerStore {
         for (const previous of state.alerts) {
           if (previous.event.eventId === event.eventId && previous.status === 'prepared') {
             previous.status = 'superseded'
+            for (const job of state.enrichmentJobs) {
+              if (job.draftId === previous.draftId && job.status !== 'completed') {
+                job.status = 'completed'
+                job.updatedAt = now.toISOString()
+                job.leaseUntil = undefined
+              }
+            }
             for (const delivery of state.deliveries) {
               if (delivery.draftId === previous.draftId
                 && !['acknowledged_simulated', 'superseded'].includes(delivery.status)) {
@@ -358,11 +466,29 @@ export class UpbitListingWorkerStore {
           alertClass: event.status === 'new_listing' ? 'early_listing' : 'listing_update',
           status: 'prepared',
           preparedAt: now.toISOString(),
+          enrichmentStatus: 'pending',
+          assessments: [],
           simulationOnly: true,
           sendAllowed: false,
           executionAllowed: false,
         }
         state.alerts.push(alert)
+        for (const symbol of event.symbols) {
+          const jobId = enrichmentJobId(event, symbol)
+          if (state.enrichmentJobs.some(job => job.jobId === jobId)) continue
+          state.enrichmentJobs.push({
+            schema: 'lolah-upbit-enrichment-job-v1',
+            jobId,
+            draftId: id,
+            event: structuredClone(event),
+            symbol,
+            status: 'pending',
+            attemptCount: 0,
+            nextAttemptAt: now.toISOString(),
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+          })
+        }
         const eventSymbols = new Set(event.symbols)
         const matchingWatches = state.watches.filter(watch => watch.status === 'active'
           && (watch.symbols.includes('*') || watch.symbols.some(symbol => eventSymbols.has(symbol))))
@@ -395,12 +521,119 @@ export class UpbitListingWorkerStore {
       if (state.deliveries.length > MAX_DELIVERIES) {
         state.deliveries.splice(0, state.deliveries.length - MAX_DELIVERIES)
       }
+      if (state.enrichmentJobs.length > MAX_ENRICHMENT_JOBS) {
+        const removable = state.enrichmentJobs.filter(job => job.status === 'completed')
+        const remove = Math.min(removable.length, state.enrichmentJobs.length - MAX_ENRICHMENT_JOBS)
+        const ids = new Set(removable.slice(0, remove).map(job => job.jobId))
+        state.enrichmentJobs = state.enrichmentJobs.filter(job => !ids.has(job.jobId))
+      }
       return { prepared, lateSuppressed }
     })
   }
 
   async listPreparedAlerts() {
     return structuredClone((await this.load()).alerts.filter(alert => alert.status === 'prepared'))
+  }
+
+  async claimEnrichmentJobs(now = new Date(), limit = 5, leaseMs = 30_000) {
+    if (!Number.isFinite(now.getTime()) || !Number.isInteger(limit) || limit < 1 || limit > 20
+      || !Number.isInteger(leaseMs) || leaseMs < 10_000 || leaseMs > 5 * 60_000) {
+      throw new Error('Upbit enrichment claim is invalid.')
+    }
+    return this.mutate(state => {
+      for (const job of state.enrichmentJobs) {
+        if (job.status === 'in_progress' && job.leaseUntil && Date.parse(job.leaseUntil) <= now.getTime()) {
+          job.updatedAt = now.toISOString()
+          job.leaseUntil = undefined
+          if (job.attemptCount >= 5) {
+            job.status = 'completed'
+            const alert = state.alerts.find(item => item.draftId === job.draftId && item.status === 'prepared')
+            if (alert && !alert.assessments.some(item => item.symbol === job.symbol)) {
+              alert.assessments.push(unavailableAssessment(job.symbol))
+            }
+          } else {
+            job.status = 'pending'
+            job.nextAttemptAt = now.toISOString()
+          }
+        }
+      }
+      for (const alert of state.alerts.filter(item => item.status === 'prepared'
+        && item.enrichmentStatus === 'pending')) {
+        const related = state.enrichmentJobs.filter(item => item.draftId === alert.draftId)
+        if (related.length === alert.event.symbols.length && related.every(item => item.status === 'completed')) {
+          alert.enrichmentStatus = 'complete'
+        }
+      }
+      const due = state.enrichmentJobs.filter(job => job.status === 'pending'
+        && Date.parse(job.nextAttemptAt) <= now.getTime()
+        && state.alerts.some(alert => alert.draftId === job.draftId
+          && alert.status === 'prepared' && alert.enrichmentStatus === 'pending'))
+        .slice(0, limit)
+      for (const job of due) {
+        job.status = 'in_progress'
+        job.attemptCount += 1
+        job.updatedAt = now.toISOString()
+        job.leaseUntil = new Date(now.getTime() + leaseMs).toISOString()
+      }
+      return structuredClone(due)
+    })
+  }
+
+  async completeEnrichmentJob(
+    jobId: string,
+    assessment: UpbitMarketAssessment,
+    now = new Date(),
+  ) {
+    if (!validAssessment(assessment) || !Number.isFinite(now.getTime())) {
+      throw new Error('Upbit enrichment completion is invalid.')
+    }
+    return this.mutate(state => {
+      const job = state.enrichmentJobs.find(item => item.jobId === jobId)
+      if (!job || job.status !== 'in_progress' || !job.leaseUntil
+        || Date.parse(job.leaseUntil) < now.getTime()
+        || assessment.symbol !== job.symbol || assessment.targetMarket !== job.symbol
+        || (assessment.scan && assessment.scan.eventId !== 'evt_upbit_' + job.event.noticeId + '_' + job.symbol.toLowerCase())) {
+        throw new Error('Upbit enrichment job is unavailable.')
+      }
+      const alert = state.alerts.find(item => item.draftId === job.draftId && item.status === 'prepared')
+      if (!alert) throw new Error('Upbit enrichment alert is unavailable.')
+      if (!alert.assessments.some(item => item.symbol === assessment.symbol)) {
+        alert.assessments.push(structuredClone(assessment))
+      }
+      job.status = 'completed'
+      job.updatedAt = now.toISOString()
+      job.leaseUntil = undefined
+      const related = state.enrichmentJobs.filter(item => item.draftId === alert.draftId)
+      if (related.length === alert.event.symbols.length && related.every(item => item.status === 'completed')) {
+        alert.enrichmentStatus = 'complete'
+      }
+      return structuredClone(alert)
+    })
+  }
+
+  async failEnrichmentJob(jobId: string, now = new Date()) {
+    if (!Number.isFinite(now.getTime())) throw new Error('Current time is invalid.')
+    return this.mutate(state => {
+      const job = state.enrichmentJobs.find(item => item.jobId === jobId)
+      if (!job || job.status !== 'in_progress') throw new Error('Upbit enrichment job is unavailable.')
+      const alert = state.alerts.find(item => item.draftId === job.draftId && item.status === 'prepared')
+      if (!alert) throw new Error('Upbit enrichment alert is unavailable.')
+      job.updatedAt = now.toISOString()
+      job.leaseUntil = undefined
+      if (job.attemptCount >= 5) {
+        const unavailable = unavailableAssessment(job.symbol)
+        if (!alert.assessments.some(item => item.symbol === job.symbol)) alert.assessments.push(unavailable)
+        job.status = 'completed'
+        const related = state.enrichmentJobs.filter(item => item.draftId === alert.draftId)
+        if (related.length === alert.event.symbols.length && related.every(item => item.status === 'completed')) {
+          alert.enrichmentStatus = 'complete'
+        }
+        return 'unavailable_finalized' as const
+      }
+      job.status = 'pending'
+      job.nextAttemptAt = new Date(now.getTime() + upbitEnrichmentRetryDelayMs(job.attemptCount)).toISOString()
+      return 'retrying' as const
+    })
   }
 
   async leaseRecipientAlerts(recipientId: string, sessionId: string, now = new Date(), limit = 20, leaseMs = 60_000) {
@@ -421,10 +654,13 @@ export class UpbitListingWorkerStore {
         }
       }
       const due = state.deliveries.filter(delivery => delivery.recipientId === recipient
-        && delivery.status === 'pending').slice(0, limit)
+        && delivery.status === 'pending'
+        && state.alerts.some(alert => alert.draftId === delivery.draftId
+          && alert.status === 'prepared' && alert.enrichmentStatus === 'complete'))
+        .slice(0, limit)
       return due.map(delivery => {
         const alert = state.alerts.find(candidate => candidate.draftId === delivery.draftId
-          && candidate.status === 'prepared')
+          && candidate.status === 'prepared' && candidate.enrichmentStatus === 'complete')
         if (!alert) {
           delivery.status = 'superseded'
           delivery.updatedAt = now.toISOString()
@@ -524,7 +760,81 @@ export async function runContinuousUpbitListingWorker(input: {
   }
 }
 
+export async function runUpbitEnrichmentCycle(input: {
+  store: UpbitListingWorkerStore
+  enrich: (event: UpbitListingEvent, symbol: string) => Promise<UpbitMarketAssessment>
+  now?: () => Date
+  limit?: number
+}): Promise<UpbitEnrichmentCycleResult> {
+  const now = input.now ?? (() => new Date())
+  const jobs = await input.store.claimEnrichmentJobs(now(), input.limit ?? 5)
+  let completed = 0
+  let retrying = 0
+  let unavailableFinalized = 0
+  for (const job of jobs) {
+    try {
+      const result = await input.enrich(job.event, job.symbol)
+      await input.store.completeEnrichmentJob(job.jobId, result, now())
+      completed += 1
+    } catch {
+      const outcome = await input.store.failEnrichmentJob(job.jobId, now())
+      if (outcome === 'retrying') retrying += 1
+      else unavailableFinalized += 1
+    }
+  }
+  return {
+    schema: 'lolah-upbit-enrichment-cycle-v1',
+    claimed: jobs.length,
+    completed,
+    retrying,
+    unavailableFinalized,
+    simulationOnly: true,
+    sendAllowed: false,
+    executionAllowed: false,
+  }
+}
+
+export async function runContinuousUpbitEnrichmentWorker(input: {
+  store: UpbitListingWorkerStore
+  enrich: (event: UpbitListingEvent, symbol: string) => Promise<UpbitMarketAssessment>
+  signal: AbortSignal
+  intervalMs?: number
+  onCycle?: (result: UpbitEnrichmentCycleResult) => void
+  onError?: (failure: { category: 'enrichment_store_unavailable'; retryAfterMs: number }) => void
+}) {
+  const intervalMs = input.intervalMs ?? 1_000
+  if (!Number.isInteger(intervalMs) || intervalMs < 250 || intervalMs > 60_000) {
+    throw new Error('Upbit enrichment interval is invalid.')
+  }
+  while (!input.signal.aborted) {
+    try {
+      const result = await runUpbitEnrichmentCycle(input)
+      if (result.claimed > 0) input.onCycle?.(result)
+    } catch {
+      input.onError?.({ category: 'enrichment_store_unavailable', retryAfterMs: intervalMs })
+    }
+    await new Promise<void>(resolveWait => {
+      const aborted = () => {
+        clearTimeout(timer)
+        resolveWait()
+      }
+      const timer = setTimeout(() => {
+        input.signal.removeEventListener('abort', aborted)
+        resolveWait()
+      }, intervalMs)
+      input.signal.addEventListener('abort', aborted, { once: true })
+    })
+  }
+}
+
 export function upbitRetryDelayMs(consecutiveFailures: number) {
   if (!Number.isInteger(consecutiveFailures) || consecutiveFailures < 1) throw new Error('Upbit failure count is invalid.')
   return Math.min(5 * 60_000, 1_000 * (2 ** Math.min(18, consecutiveFailures - 1)))
+}
+
+export function upbitEnrichmentRetryDelayMs(attemptCount: number) {
+  if (!Number.isInteger(attemptCount) || attemptCount < 1 || attemptCount > 5) {
+    throw new Error('Upbit enrichment attempt count is invalid.')
+  }
+  return Math.min(60_000, 1_000 * (2 ** (attemptCount - 1)))
 }

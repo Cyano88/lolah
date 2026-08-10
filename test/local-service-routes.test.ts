@@ -10,7 +10,12 @@ import { LolahNewsScout } from '../src/news-scout.js'
 import { createOkxFixtureSessionVerifier } from '../src/okx-session-verifier.js'
 import type { LolahSourceRegistry } from '../src/source-registry.js'
 import type { RawXPost } from '../src/x-recent-search.js'
-import { UpbitListingWorkerStore, runUpbitListingWorkerCycle } from '../src/upbit-listing-worker.js'
+import type { UpbitMarketAssessment } from '../src/upbit-shadow-replay.js'
+import {
+  UpbitListingWorkerStore,
+  runUpbitEnrichmentCycle,
+  runUpbitListingWorkerCycle,
+} from '../src/upbit-listing-worker.js'
 
 const registry: LolahSourceRegistry = {
   entities: [{ id: 'kaito', name: 'Kaito', aliases: ['Kaito AI'], symbols: ['KAITO'], hyperliquidMarkets: ['KAITO'] }],
@@ -250,15 +255,33 @@ test('creates and pulls recipient-bound Upbit alerts without cross-agent access'
     fetcher: upbitFetcher as typeof fetch,
     now: () => now,
   })
+  await runUpbitEnrichmentCycle({
+    store: upbitStore,
+    enrich: async (_event, symbol): Promise<UpbitMarketAssessment> => ({
+      symbol, targetMarket: symbol, state: 'context_ready',
+      marketPosture: 'positive_catalyst_watch', liquidityAssessment: 'adequate',
+      reason: 'Verified route fixture context is ready.',
+      simulationOnly: true, sendAllowed: false, executionAllowed: false,
+    }),
+    now: () => now,
+  })
 
   const pull = await handleLolahLocalRequest({
     method: 'POST', path: '/v1/upbit/alerts/pull',
     headers: { authorization: 'Bearer ' + token }, body: { leaseMs: 10_000 },
   }, { store, upbitStore, verifier: claims('123'), now: () => now })
   assert.equal(pull.status, 200)
-  const deliveries = pull.body.deliveries as Array<{ outboxId: string; event: { symbols: string[] }; executionAllowed: boolean }>
+  const deliveries = pull.body.deliveries as Array<{
+    outboxId: string
+    event: { symbols: string[] }
+    enrichmentStatus: string
+    assessments: UpbitMarketAssessment[]
+    executionAllowed: boolean
+  }>
   assert.equal(deliveries.length, 1)
   assert.deepEqual(deliveries[0].event.symbols, ['CYS', 'ICNT'])
+  assert.equal(deliveries[0].enrichmentStatus, 'complete')
+  assert.equal(deliveries[0].assessments.length, 2)
   assert.equal(deliveries[0].executionAllowed, false)
 
   const crossAgent = await handleLolahLocalRequest({

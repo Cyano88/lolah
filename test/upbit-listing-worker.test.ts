@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
-import { UpbitListingWorkerStore, runUpbitListingWorkerCycle, upbitRetryDelayMs } from '../src/upbit-listing-worker.js'
+import type { UpbitMarketAssessment } from '../src/upbit-shadow-replay.js'
+import {
+  UpbitListingWorkerStore,
+  runUpbitEnrichmentCycle,
+  runUpbitListingWorkerCycle,
+  upbitEnrichmentRetryDelayMs,
+  upbitRetryDelayMs,
+} from '../src/upbit-listing-worker.js'
 
 const announcement = {
   success: true,
@@ -36,6 +43,15 @@ function fetcher(input: string | URL | Request, init?: RequestInit) {
   }), { status: 200 }))
 }
 
+function assessment(symbol: string): UpbitMarketAssessment {
+  return {
+    symbol, targetMarket: symbol, state: 'context_ready',
+    marketPosture: 'positive_catalyst_watch', liquidityAssessment: 'adequate',
+    reason: 'Verified live fixture context is ready.',
+    simulationOnly: true, sendAllowed: false, executionAllowed: false,
+  }
+}
+
 test('atomically persists a fresh alert and monitor revision across restart', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'lolah-upbit-worker-'))
   try {
@@ -48,6 +64,7 @@ test('atomically persists a fresh alert and monitor revision across restart', as
     })
     assert.equal(first.alertsPrepared, 1)
     assert.equal((await firstStore.listPreparedAlerts()).length, 1)
+    assert.equal((await firstStore.listPreparedAlerts())[0].enrichmentStatus, 'pending')
 
     const restartedStore = new UpbitListingWorkerStore(path)
     const replay = await runUpbitListingWorkerCycle({
@@ -64,11 +81,39 @@ test('atomically persists a fresh alert and monitor revision across restart', as
   }
 })
 
+test('migrates deployed v2 alerts as completed legacy records', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'lolah-upbit-worker-'))
+  try {
+    const path = join(directory, 'state.json')
+    const store = new UpbitListingWorkerStore(path)
+    await runUpbitListingWorkerCycle({
+      store,
+      fetcher: fetcher as typeof fetch,
+      now: () => new Date('2026-08-10T02:06:04Z'),
+    })
+    const legacy = JSON.parse(await readFile(path, 'utf8'))
+    legacy.schema = 'lolah-upbit-worker-state-v2'
+    delete legacy.enrichmentJobs
+    for (const alert of legacy.alerts) {
+      delete alert.enrichmentStatus
+      delete alert.assessments
+    }
+    await writeFile(path, JSON.stringify(legacy))
+    const migrated = (await new UpbitListingWorkerStore(path).listPreparedAlerts())[0]
+    assert.equal(migrated.enrichmentStatus, 'complete')
+    assert.deepEqual(migrated.assessments, [])
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 test('uses bounded exponential backoff for upstream failures', () => {
   assert.equal(upbitRetryDelayMs(1), 1_000)
   assert.equal(upbitRetryDelayMs(2), 2_000)
   assert.equal(upbitRetryDelayMs(10), 300_000)
   assert.equal(upbitRetryDelayMs(100), 300_000)
+  assert.equal(upbitEnrichmentRetryDelayMs(1), 1_000)
+  assert.equal(upbitEnrichmentRetryDelayMs(5), 16_000)
 })
 
 test('records but does not prepare a delayed listing alert', async () => {
@@ -104,6 +149,14 @@ test('fans a fresh listing out only to matching recipient-bound watches', async 
       fetcher: fetcher as typeof fetch,
       now: () => new Date('2026-08-10T02:06:04Z'),
     })
+    assert.equal((await store.leaseRecipientAlerts('okx-agent:all', 'okx-session:all',
+      new Date('2026-08-10T02:06:04.500Z'), 20, 10_000)).length, 0)
+    const enriched = await runUpbitEnrichmentCycle({
+      store,
+      enrich: async (_event, symbol) => assessment(symbol),
+      now: () => new Date('2026-08-10T02:06:04.600Z'),
+    })
+    assert.equal(enriched.completed, 2)
     const all = await store.leaseRecipientAlerts('okx-agent:all', 'okx-session:all',
       new Date('2026-08-10T02:06:05Z'), 20, 10_000)
     const cys = await store.leaseRecipientAlerts('okx-agent:cys', 'okx-session:cys',
@@ -126,6 +179,59 @@ test('fans a fresh listing out only to matching recipient-bound watches', async 
       new Date('2026-08-10T02:06:06Z'),
     )
     assert.equal(acknowledged.status, 'acknowledged_simulated')
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('retries context independently and finalizes a safe unavailable assessment', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'lolah-upbit-worker-'))
+  try {
+    const store = new UpbitListingWorkerStore(join(directory, 'state.json'))
+    await runUpbitListingWorkerCycle({
+      store,
+      fetcher: fetcher as typeof fetch,
+      now: () => new Date('2026-08-10T02:06:04Z'),
+    })
+    const attempts = [0, 1, 3, 7, 15]
+    for (const seconds of attempts) {
+      await runUpbitEnrichmentCycle({
+        store,
+        enrich: async () => { throw new Error('private provider failure') },
+        now: () => new Date(Date.parse('2026-08-10T02:06:04Z') + seconds * 1_000),
+      })
+    }
+    const alert = (await store.listPreparedAlerts())[0]
+    assert.equal(alert.enrichmentStatus, 'complete')
+    assert.equal(alert.assessments.length, 2)
+    assert.equal(alert.assessments.every(item => item.state === 'provider_unavailable'), true)
+    assert.equal(JSON.stringify(alert).includes('private provider failure'), false)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('finalizes a fifth-attempt enrichment lease that expires after a worker crash', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'lolah-upbit-worker-'))
+  try {
+    const store = new UpbitListingWorkerStore(join(directory, 'state.json'))
+    const base = Date.parse('2026-08-10T02:06:04Z')
+    await runUpbitListingWorkerCycle({
+      store, fetcher: fetcher as typeof fetch, now: () => new Date(base),
+    })
+    for (const seconds of [0, 1, 3, 7]) {
+      await runUpbitEnrichmentCycle({
+        store, enrich: async () => { throw new Error('failure') },
+        now: () => new Date(base + seconds * 1_000),
+      })
+    }
+    const fifth = await store.claimEnrichmentJobs(new Date(base + 15_000), 5, 10_000)
+    assert.equal(fifth.length, 2)
+    assert.equal(fifth.every(job => job.attemptCount === 5), true)
+    assert.equal((await store.claimEnrichmentJobs(new Date(base + 26_000), 5, 10_000)).length, 0)
+    const alert = (await store.listPreparedAlerts())[0]
+    assert.equal(alert.enrichmentStatus, 'complete')
+    assert.equal(alert.assessments.every(item => item.state === 'provider_unavailable'), true)
   } finally {
     await rm(directory, { recursive: true, force: true })
   }

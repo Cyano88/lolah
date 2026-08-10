@@ -173,6 +173,8 @@ export async function handleLolahLocalRequest(
           draftId: alert.draftId,
           alertClass: alert.alertClass,
           event: alert.event,
+          enrichmentStatus: alert.enrichmentStatus,
+          assessments: alert.assessments,
           leaseUntil: delivery.leaseUntil,
           simulationOnly: true,
           sendAllowed: false,

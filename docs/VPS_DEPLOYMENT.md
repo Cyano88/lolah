@@ -22,6 +22,8 @@ Lolah may share the physical host used by PolyDesk, but it must remain operation
 
 The deployed worker consumes CoinListing's raw Upbit feed at `wss://seoul.coinlisting.pro/feed`. Lolah keeps its own listing parser, accepts only official Upbit notice URLs, measures provider-to-Lolah latency at receipt, and durably suppresses exact replays. The provider key is configured only as the masked `LOLAH_COINLISTING_KEY` deployment secret and is never logged or persisted. Direct polling of Upbit's consumer website is not enabled in deployed mode. The worker persists fresh or stale revision decisions and simulation-only pull records. It cannot push messages, sign, trade, broadcast, bill, or register an OKX service.
 
+Live listing enrichment is a separate durable loop in the same Lolah process and state file. Keep `LOLAH_UPBIT_ENRICHMENT_ENABLED=false` until the exact production PolyDesk context route is reviewed and returns the documented schema. When enabled, each fresh symbol receives a leased context job; recipient pulls wait for completion, retries do not block CoinListing ingestion, and five failed attempts finalize only a sanitized context-unavailable assessment.
+
 ## Root-access VPS alternative: preflight
 
 Before copying files, verify the exact shared host, available disk and memory, Node 20 or newer, npm, and the status of PolyDesk without changing it. Abort if the target host cannot be proven to be the intended shared VPS.
