@@ -44,6 +44,10 @@ services:
         value: 'false'
       - key: LOLAH_X_STATE_PATH
         value: /var/lib/lolah-x/state.json
+      - key: LOLAH_X_DAILY_POST_CAP
+        value: '50'
+      - key: LOLAH_X_USAGE_PATH
+        value: /var/lib/lolah-x/x-usage.json
       - key: LOLAH_X_BEARER_TOKEN
         sync: false
       - key: LOLAH_X_SOURCE_CATALOG_PATH

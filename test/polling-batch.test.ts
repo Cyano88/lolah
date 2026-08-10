@@ -7,6 +7,7 @@ import type { LolahEventScan } from '../src/contracts.js'
 import { LolahDurableStateStore } from '../src/durable-state.js'
 import { runReadOnlyPollingBatch } from '../src/polling-batch.js'
 import type { LolahSourceRegistry } from '../src/source-registry.js'
+import { XDailyUsageBudget } from '../src/x-usage-budget.js'
 
 const registry: LolahSourceRegistry = {
   entities: [{ id: 'kaito', name: 'Kaito', aliases: ['Kaito AI'], symbols: ['KAITO'], hyperliquidMarkets: ['KAITO'] }],
@@ -138,4 +139,40 @@ test('refuses a checkpoint for an incomplete paginated result window', async t =
   assert.equal(result.windowComplete, false)
   assert.equal(result.checkpoint, undefined)
   assert.equal(await new LolahDurableStateStore(statePath).getCheckpoint('x:paged-news'), undefined)
+})
+
+test('stops before an X request when fewer than ten daily post reads remain', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'lolah-poll-budget-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const usageBudget = new XDailyUsageBudget(join(directory, 'usage.json'), 10)
+  await usageBudget.record(['1'])
+  let fetched = false
+  const result = await runReadOnlyPollingBatch({
+    sourceKey: 'x:budget', query: 'Kaito shutdown', bearerToken: 't'.repeat(30), registry,
+    store: new LolahDurableStateStore(join(directory, 'state.json')), usageBudget,
+    fetcher: async () => { fetched = true; return new Response('{}') },
+    scan: request => Promise.resolve(scanResult(request.event.eventId, request.targetMarket, new Date().toISOString())),
+  })
+  assert.equal(result.status, 'budget_exhausted')
+  assert.equal(fetched, false)
+  if (result.status === 'budget_exhausted') assert.equal(result.usage.remainingPosts, 9)
+})
+
+test('shrinks the X result page to the durable remaining allowance', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'lolah-poll-budget-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const usageBudget = new XDailyUsageBudget(join(directory, 'usage.json'), 50)
+  await usageBudget.record(Array.from({ length: 33 }, (_, index) => String(10_000 + index)))
+  let requested = ''
+  const result = await runReadOnlyPollingBatch({
+    sourceKey: 'x:budget-page', query: 'Kaito shutdown', bearerToken: 't'.repeat(30), registry,
+    store: new LolahDurableStateStore(join(directory, 'state.json')), usageBudget,
+    fetcher: async input => {
+      requested = String(input)
+      return new Response(JSON.stringify({ data: [], meta: {} }), { status: 200 })
+    },
+    scan: request => Promise.resolve(scanResult(request.event.eventId, request.targetMarket, new Date().toISOString())),
+  })
+  assert.equal(result.status, 'processed')
+  assert.equal(new URL(requested).searchParams.get('max_results'), '17')
 })

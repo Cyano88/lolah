@@ -5,6 +5,7 @@ import type { LolahScanRequest } from './event-scan.js'
 import { LolahNewsScout, type ScoutIngestResult } from './news-scout.js'
 import type { LolahSourceRegistry } from './source-registry.js'
 import { fetchRecentXPosts } from './x-recent-search.js'
+import { XDailyUsageBudget, type XUsageSnapshot } from './x-usage-budget.js'
 
 export type ReadOnlyPollingBatchOptions = {
   sourceKey: string
@@ -17,6 +18,7 @@ export type ReadOnlyPollingBatchOptions = {
   minimumIntervalMs?: number
   maxPages?: number
   now?: () => Date
+  usageBudget?: XDailyUsageBudget
 }
 
 export type PollingPostResult = {
@@ -33,6 +35,15 @@ export type ReadOnlyPollingBatchResult =
   | {
       status: 'rate_limited'
       retryAfterMs: number
+      posts: []
+      contextQueue: ContextQueueSummary
+      alertDraftsPrepared: number
+      outboxStaged: number
+    }
+  | {
+      status: 'budget_exhausted'
+      retryAfterMs: number
+      usage: XUsageSnapshot
       posts: []
       contextQueue: ContextQueueSummary
       alertDraftsPrepared: number
@@ -111,6 +122,18 @@ export async function runReadOnlyPollingBatch(options: ReadOnlyPollingBatchOptio
     ? undefined
     : new Date(batchStartedAt.getTime() - 2 * 60_000).toISOString()
   do {
+    const usage = await options.usageBudget?.snapshot(batchStartedAt)
+    if (usage && usage.remainingPosts < 10) {
+      if (pagesFetched > 0) break
+      const queueOutcomes = await drainReadOnlyContextQueue({ store: options.store, scan: options.scan, now })
+      const alertDrafts = await options.store.prepareAlertDrafts(now())
+      const outbox = await options.store.stageAlertDraftsToOutbox(now())
+      return {
+        status: 'budget_exhausted', retryAfterMs: usage.retryAfterMs, usage, posts: [],
+        contextQueue: summarizeContextQueue(queueOutcomes),
+        alertDraftsPrepared: alertDrafts.length, outboxStaged: outbox.created,
+      }
+    }
     const page = await fetchRecentXPosts(
       options.query,
       options.bearerToken,
@@ -118,7 +141,11 @@ export async function runReadOnlyPollingBatch(options: ReadOnlyPollingBatchOptio
       nextToken,
       checkpoint?.newestPostId,
       firstBootStartTime,
+      usage ? Math.min(100, usage.remainingPosts) : 100,
     )
+    if (page.readPostIds.length) {
+      await options.usageBudget?.record(page.readPostIds, batchStartedAt)
+    }
     pagesFetched += 1
     for (const post of page.posts) {
       const existing = fetchedPosts.get(post.postId)

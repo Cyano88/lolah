@@ -10,6 +10,7 @@ export type RawXPost = {
 
 export type XRecentSearchResult = {
   posts: RawXPost[]
+  readPostIds: string[]
   nextToken?: string
 }
 
@@ -30,13 +31,17 @@ export async function fetchRecentXPosts(
   nextToken?: string,
   sinceId?: string,
   startTime?: string,
+  maxResults = 100,
 ): Promise<XRecentSearchResult> {
   const normalizedQuery = query.replace(/\s+/g, ' ').trim()
   if (normalizedQuery.length < 2 || normalizedQuery.length > 480) throw new Error('X query must contain 2 through 480 characters.')
   if (!bearerToken || bearerToken.length < 20) throw new Error('X API access is not configured.')
+  if (!Number.isInteger(maxResults) || maxResults < 10 || maxResults > 100) {
+    throw new Error('X maxResults must be 10 through 100.')
+  }
   const params = new URLSearchParams({
     query: normalizedQuery,
-    max_results: '100',
+    max_results: String(maxResults),
     expansions: 'author_id',
     'tweet.fields': 'author_id,created_at,lang',
     'user.fields': 'username',
@@ -68,9 +73,11 @@ export async function fetchRecentXPosts(
   }
   const posts: RawXPost[] = []
   const data = Array.isArray(payload.data) ? payload.data : []
+  const readPostIds = new Set<string>()
   for (const item of data) {
     if (!isRecord(item)) continue
     const postId = text(item.id)
+    if (/^\d+$/.test(postId)) readPostIds.add(postId)
     const authorId = text(item.author_id)
     const username = usernames.get(authorId)
     const postText = text(item.text).replace(/\s+/g, ' ')
@@ -90,5 +97,5 @@ export async function fetchRecentXPosts(
   }
   const meta = isRecord(payload.meta) ? payload.meta : {}
   const resultNextToken = text(meta.next_token)
-  return { posts, ...(resultNextToken ? { nextToken: resultNextToken } : {}) }
+  return { posts, readPostIds: [...readPostIds], ...(resultNextToken ? { nextToken: resultNextToken } : {}) }
 }

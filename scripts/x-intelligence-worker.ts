@@ -8,6 +8,7 @@ import { preflightPolydeskMarketContext } from '../src/polydesk-client.js'
 import { validateSourceRegistry, type LolahSourceRegistry } from '../src/source-registry.js'
 import { runContinuousXIntelligenceWorker } from '../src/x-intelligence-worker.js'
 import { loadOrPinXSourceRegistry } from '../src/x-source-pin.js'
+import { XDailyUsageBudget } from '../src/x-usage-budget.js'
 
 function value(name: string) {
   return String(process.env[name] ?? '').trim()
@@ -57,6 +58,11 @@ async function start() {
     'production_shadow',
   )
   const sources = await expandRegistryWithHyperliquidUniverse(await registry(bearerToken, statePath))
+  const dailyPostCap = Number(value('LOLAH_X_DAILY_POST_CAP') || '50')
+  const usageBudget = new XDailyUsageBudget(
+    value('LOLAH_X_USAGE_PATH') || resolve(dirname(statePath), 'x-usage.json'),
+    dailyPostCap,
+  )
   let failures = 0
   while (!controller.signal.aborted) {
     try {
@@ -72,7 +78,8 @@ async function start() {
   if (controller.signal.aborted) return
   console.log(JSON.stringify({
     component: 'x_intelligence', state: 'enabled', sources: sources.sources.length,
-    entities: sources.entities.length, simulationOnly: true, sendAllowed: false, executionAllowed: false,
+    entities: sources.entities.length, dailyPostCap,
+    simulationOnly: true, sendAllowed: false, executionAllowed: false,
   }))
   const store = new LolahDurableStateStore(statePath)
   await runContinuousXIntelligenceWorker({
@@ -80,12 +87,13 @@ async function start() {
     bearerToken,
     store,
     signal: controller.signal,
+    usageBudget,
     scan: request => runLiveReadOnlyScan(request, {
       polydeskEndpoint,
       polydeskBearerToken: polydeskToken,
     }),
     onCycle: result => {
-      if (result.postsFetched || result.eventsAccepted || result.contextCompleted) {
+      if (result.postsFetched || result.eventsAccepted || result.contextCompleted || result.queriesBudgetExhausted) {
         console.log(JSON.stringify(result))
       }
     },

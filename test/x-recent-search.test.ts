@@ -16,6 +16,7 @@ test('normalizes official X recent-search data and pagination', async () => {
   assert.equal(authorization, 'Bearer ' + 't'.repeat(30))
   assert.equal(result.posts[0].sourceUrl, 'https://x.com/KaitoOfficial/status/123')
   assert.equal(result.posts[0].text, 'Kaito will shut down')
+  assert.deepEqual(result.readPostIds, ['123'])
   assert.equal(result.nextToken, 'next-page')
 })
 
@@ -52,5 +53,19 @@ test('adds a validated start_time for a bounded first search', async () => {
   await assert.rejects(
     () => fetchRecentXPosts('Kaito', 't'.repeat(30), fetcher, undefined, undefined, 'not-a-time'),
     /startTime/,
+  )
+})
+
+test('bounds the X page size to the remaining usage allowance', async () => {
+  let requested = ''
+  const fetcher: typeof fetch = async input => {
+    requested = String(input)
+    return new Response(JSON.stringify({ data: [], meta: {} }), { status: 200 })
+  }
+  await fetchRecentXPosts('Kaito', 't'.repeat(30), fetcher, undefined, undefined, undefined, 17)
+  assert.equal(new URL(requested).searchParams.get('max_results'), '17')
+  await assert.rejects(
+    () => fetchRecentXPosts('Kaito', 't'.repeat(30), fetcher, undefined, undefined, undefined, 9),
+    /maxResults/,
   )
 })
