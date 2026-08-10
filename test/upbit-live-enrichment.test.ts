@@ -24,11 +24,13 @@ function response(data: unknown) {
 
 test('enriches a live Upbit event through PolyDesk and Hyperliquid without enabling action', async () => {
   const calls: string[] = []
+  const token = 'p'.repeat(40)
   const fetcher: typeof fetch = async (input, init) => {
     const url = String(input)
     const body = JSON.parse(String(init?.body ?? '{}'))
     if (url.includes('polydesk')) {
       calls.push('polydesk')
+      assert.equal((init?.headers as Record<string, string>).Authorization, `Bearer ${token}`)
       return response({
         ok: true,
         data: {
@@ -55,6 +57,7 @@ test('enriches a live Upbit event through PolyDesk and Hyperliquid without enabl
     event,
     symbol: 'CFX',
     polydeskEndpoint: 'https://polydesk.trade/api/agent/polymarket-context',
+    polydeskBearerToken: token,
     fetcher,
     now: () => new Date('2026-08-10T02:55:19.666Z'),
   })

@@ -24,3 +24,5 @@ services:
         value: 'false'
       - key: LOLAH_POLYDESK_CONTEXT_ENDPOINT
         value: https://polydesk.trade/api/agent/polymarket-context
+      - key: LOLAH_POLYDESK_CONTEXT_TOKEN
+        sync: false

@@ -6,11 +6,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
-function endpointUrl(value: string) {
+function endpointUrl(value: string, bearerToken: string) {
   const parsed = new URL(value)
   const local = parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost'
   if (parsed.protocol !== 'https:' && !(local && parsed.protocol === 'http:')) {
     throw new Error('PolyDesk endpoint must use HTTPS outside local development.')
+  }
+  if (bearerToken && (
+    parsed.protocol !== 'https:'
+    || parsed.hostname !== 'polydesk.trade'
+    || parsed.port
+    || parsed.username
+    || parsed.password
+    || parsed.pathname !== '/api/agent/polymarket-context'
+    || parsed.search
+    || parsed.hash
+  )) {
+    throw new Error('Authenticated PolyDesk endpoint is not allowlisted.')
   }
   return parsed.toString()
 }
@@ -19,10 +31,19 @@ export async function requestPolydeskMarketContext(
   endpoint: string,
   event: LolahNewsEvent,
   fetcher: FetchLike = fetch,
+  bearerToken = '',
 ): Promise<PolydeskMarketContext> {
-  const response = await fetcher(endpointUrl(endpoint), {
+  const token = String(bearerToken).trim()
+  if (token && (token.length < 32 || token.length > 8_192)) {
+    throw new Error('PolyDesk context authorization is not configured.')
+  }
+  const response = await fetcher(endpointUrl(endpoint, token), {
     method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ event }),
     signal: AbortSignal.timeout(10_000),
   })

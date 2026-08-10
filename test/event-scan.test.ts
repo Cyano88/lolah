@@ -44,16 +44,39 @@ function hyperliquid(status: HyperliquidMarketContext['marketStatus'] = 'availab
 
 test('consumes a valid PolyDesk endpoint response and pins it to the requested event', async () => {
   let body = ''
+  let authorization = ''
   const fetcher: typeof fetch = async (_input, init) => {
     body = String(init?.body ?? '')
+    authorization = String((init?.headers as Record<string, string>)?.Authorization ?? '')
     return new Response(JSON.stringify({ ok: true, data: polydesk() }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
   }
-  const result = await requestPolydeskMarketContext('http://127.0.0.1:3000/api/agent/polymarket-context', event, fetcher)
+  const token = 'p'.repeat(40)
+  const result = await requestPolydeskMarketContext(
+    'https://polydesk.trade/api/agent/polymarket-context',
+    event,
+    fetcher,
+    token,
+  )
   assert.equal(result.matchStatus, 'matched')
   assert.equal(JSON.parse(body).event.eventId, event.eventId)
+  assert.equal(authorization, `Bearer ${token}`)
+})
+
+test('never sends a context token to a noncanonical endpoint', async () => {
+  let calls = 0
+  await assert.rejects(() => requestPolydeskMarketContext(
+    'https://polydesk.trade.evil.example/api/agent/polymarket-context',
+    event,
+    async () => {
+      calls += 1
+      throw new Error('must not run')
+    },
+    'p'.repeat(40),
+  ), /not allowlisted/)
+  assert.equal(calls, 0)
 })
 
 test('returns context_ready without creating a trade command', async () => {

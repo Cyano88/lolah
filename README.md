@@ -23,7 +23,7 @@ Upbit monitor state, drafts, wildcard or symbol-scoped watches, and recipient-bo
 
 Fresh listing drafts also create one durable context-enrichment job per symbol. The enrichment worker reads current PolyDesk and Hyperliquid context independently of the CoinListing socket, uses leased retries with bounded backoff, and finalizes a sanitized context-unavailable assessment after five failures. Recipient pulls remain pending until every symbol has either a completed assessment or that safe terminal fallback. Provider failures never discard the base listing event or block WebSocket ingestion.
 
-Live enrichment is gated by LOLAH_UPBIT_ENRICHMENT_ENABLED and defaults to false. It must remain disabled while the canonical PolyDesk production context route is unavailable. When enabled, LOLAH_POLYDESK_CONTEXT_ENDPOINT must be the exact HTTPS production route; loopback staging and alternate hosts are rejected by the deployed worker.
+Live enrichment is gated by LOLAH_UPBIT_ENRICHMENT_ENABLED and defaults to false. It must remain disabled while the canonical PolyDesk production context route is unavailable. When enabled, LOLAH_POLYDESK_CONTEXT_ENDPOINT must be the exact HTTPS production route and LOLAH_POLYDESK_CONTEXT_TOKEN must contain the dedicated context-only bearer secret; loopback staging and alternate hosts are rejected by the deployed worker.
 
 The continuous worker requires an explicit durable state path:
 

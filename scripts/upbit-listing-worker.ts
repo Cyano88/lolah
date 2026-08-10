@@ -43,6 +43,12 @@ const polydeskEndpoint = enrichmentEnabled
       'production_shadow',
     )
   : undefined
+const polydeskBearerToken = enrichmentEnabled
+  ? String(process.env.LOLAH_POLYDESK_CONTEXT_TOKEN ?? '').trim()
+  : undefined
+if (enrichmentEnabled && (!polydeskBearerToken || polydeskBearerToken.length < 32 || polydeskBearerToken.length > 8_192)) {
+  throw new Error('LOLAH_POLYDESK_CONTEXT_TOKEN is required.')
+}
 
 const listingWorker = runContinuousUpbitListingWorker({
   store,
@@ -64,7 +70,12 @@ if (!enrichmentEnabled) {
   const enrichmentWorker = runContinuousUpbitEnrichmentWorker({
     store,
     signal: controller.signal,
-    enrich: (event, symbol) => enrichLiveUpbitListing({ event, symbol, polydeskEndpoint }),
+    enrich: (event, symbol) => enrichLiveUpbitListing({
+      event,
+      symbol,
+      polydeskEndpoint,
+      polydeskBearerToken,
+    }),
     onCycle: result => console.log(JSON.stringify(result)),
     onError: failure => console.error(JSON.stringify(failure)),
   })

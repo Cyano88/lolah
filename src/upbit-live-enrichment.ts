@@ -12,6 +12,7 @@ export async function enrichLiveUpbitListing(input: {
   event: UpbitListingEvent
   symbol: string
   polydeskEndpoint: string
+  polydeskBearerToken?: string
   fetcher?: typeof fetch
   now?: () => Date
 }): Promise<UpbitMarketAssessment> {
@@ -22,7 +23,12 @@ export async function enrichLiveUpbitListing(input: {
     targetMarket: input.symbol,
     maxNewsAgeSeconds: 600,
   }, {
-    getPolydeskContext: event => requestPolydeskMarketContext(input.polydeskEndpoint, event, fetcher),
+    getPolydeskContext: event => requestPolydeskMarketContext(
+      input.polydeskEndpoint,
+      event,
+      fetcher,
+      input.polydeskBearerToken,
+    ),
     getHyperliquidContext: market => fetchHyperliquidMarketContext(market, fetcher, now()),
     now,
   })
