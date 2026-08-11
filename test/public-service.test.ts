@@ -8,7 +8,7 @@ import { runSupervisedRuntime } from '../src/runtime-supervisor.js'
 import type { LolahSubscriptionSignal } from '../src/subscription-push.js'
 
 const runtime: XWorkerRuntimeState = {
-  state: 'disabled', dailyPostCap: 50,
+  state: 'disabled', dailyPostCap: 50, dailyUsdCap: 0.5,
   simulationOnly: true, sendAllowed: false, executionAllowed: false,
 }
 const usage = {

@@ -15,6 +15,7 @@ export type XWorkerRuntimeState = {
   sources?: number
   entities?: number
   dailyPostCap: number
+  dailyUsdCap: number
   simulationOnly: true
   sendAllowed: false
   executionAllowed: false
@@ -26,10 +27,15 @@ function value(environment: NodeJS.ProcessEnv, name: string) {
 
 export function xWorkerRuntimeConfig(environment: NodeJS.ProcessEnv = process.env) {
   const statePath = value(environment, 'LOLAH_X_STATE_PATH')
-  const dailyPostCap = Number(value(environment, 'LOLAH_X_DAILY_POST_CAP') || '50')
+  const configuredPostCap = Number(value(environment, 'LOLAH_X_DAILY_POST_CAP') || '50')
+  const dailyUsdCap = Number(value(environment, 'LOLAH_X_DAILY_USD_CAP') || '0.50')
+  if (!Number.isFinite(dailyUsdCap) || dailyUsdCap < 0.05 || dailyUsdCap > 1) {
+    throw new Error('LOLAH_X_DAILY_USD_CAP must be between 0.05 and 1 USD.')
+  }
+  const dailyPostCap = Math.min(configuredPostCap, Math.floor(dailyUsdCap / 0.005))
   if (!statePath) throw new Error('LOLAH_X_STATE_PATH is required.')
   const usagePath = value(environment, 'LOLAH_X_USAGE_PATH') || resolve(dirname(statePath), 'x-usage.json')
-  return { statePath, dailyPostCap, usagePath }
+  return { statePath, dailyPostCap, dailyUsdCap, usagePath }
 }
 
 export function createXRuntimeUsageBudget(environment: NodeJS.ProcessEnv = process.env) {
@@ -68,10 +74,11 @@ function wait(milliseconds: number, signal: AbortSignal) {
 function state(
   current: XWorkerRuntimeState['state'],
   dailyPostCap: number,
+  dailyUsdCap: number,
   extra: Pick<XWorkerRuntimeState, 'sources' | 'entities'> = {},
 ): XWorkerRuntimeState {
   return {
-    state: current, dailyPostCap, ...extra,
+    state: current, dailyPostCap, dailyUsdCap, ...extra,
     simulationOnly: true, sendAllowed: false, executionAllowed: false,
   }
 }
@@ -84,11 +91,11 @@ export async function runXWorkerFromEnvironment(input: {
   const environment = input.environment ?? process.env
   const config = xWorkerRuntimeConfig(environment)
   if (value(environment, 'LOLAH_X_ENABLED') !== 'true') {
-    const disabled = state('disabled', config.dailyPostCap)
+    const disabled = state('disabled', config.dailyPostCap, config.dailyUsdCap)
     input.onState?.(disabled)
     console.log(JSON.stringify({ component: 'x_intelligence', ...disabled }))
     await wait(2_147_000_000, input.signal)
-    input.onState?.(state('stopped', config.dailyPostCap))
+    input.onState?.(state('stopped', config.dailyPostCap, config.dailyUsdCap))
     return
   }
 
@@ -110,7 +117,7 @@ export async function runXWorkerFromEnvironment(input: {
     } catch {
       failures += 1
       const retryAfterMs = Math.min(60_000, 1_000 * 2 ** Math.min(6, failures - 1))
-      const unavailable = state('preflight_unavailable', config.dailyPostCap, {
+      const unavailable = state('preflight_unavailable', config.dailyPostCap, config.dailyUsdCap, {
         sources: sources.sources.length, entities: sources.entities.length,
       })
       input.onState?.(unavailable)
@@ -119,7 +126,7 @@ export async function runXWorkerFromEnvironment(input: {
     }
   }
   if (input.signal.aborted) return
-  const enabled = state('enabled', config.dailyPostCap, {
+  const enabled = state('enabled', config.dailyPostCap, config.dailyUsdCap, {
     sources: sources.sources.length, entities: sources.entities.length,
   })
   input.onState?.(enabled)
@@ -141,7 +148,7 @@ export async function runXWorkerFromEnvironment(input: {
     },
     onError: failure => console.error(JSON.stringify(failure)),
   })
-  input.onState?.(state('stopped', config.dailyPostCap, {
+  input.onState?.(state('stopped', config.dailyPostCap, config.dailyUsdCap, {
     sources: sources.sources.length, entities: sources.entities.length,
   }))
 }

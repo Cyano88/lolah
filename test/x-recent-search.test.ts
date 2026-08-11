@@ -69,3 +69,22 @@ test('bounds the X page size to the remaining usage allowance', async () => {
     /maxResults/,
   )
 })
+
+test('uses the pinned source registry without purchasing repeated user expansions', async () => {
+  let requested = ''
+  const fetcher: typeof fetch = async input => {
+    requested = String(input)
+    return new Response(JSON.stringify({
+      data: [{ id: '123', author_id: '100', text: 'Kaito update', created_at: '2026-08-09T10:00:00Z' }],
+      meta: {},
+    }), { status: 200 })
+  }
+  const result = await fetchRecentXPosts(
+    'from:kaito_official', 't'.repeat(30), fetcher, undefined, undefined, undefined, 10,
+    new Map([['100', 'kaito_official']]),
+  )
+  const params = new URL(requested).searchParams
+  assert.equal(params.has('expansions'), false)
+  assert.equal(params.has('user.fields'), false)
+  assert.equal(result.posts[0].sourceUrl, 'https://x.com/kaito_official/status/123')
+})

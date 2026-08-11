@@ -121,6 +121,7 @@ export async function runReadOnlyPollingBatch(options: ReadOnlyPollingBatchOptio
   const firstBootStartTime = checkpoint
     ? undefined
     : new Date(batchStartedAt.getTime() - 2 * 60_000).toISOString()
+  const authorUsernames = new Map(options.registry.sources.map(source => [source.authorId, source.username]))
   do {
     const usage = await options.usageBudget?.snapshot(batchStartedAt)
     if (usage && usage.remainingPosts < 10) {
@@ -142,6 +143,7 @@ export async function runReadOnlyPollingBatch(options: ReadOnlyPollingBatchOptio
       checkpoint?.newestPostId,
       firstBootStartTime,
       usage ? Math.min(100, usage.remainingPosts) : 100,
+      authorUsernames,
     )
     if (page.readPostIds.length) {
       await options.usageBudget?.record(page.readPostIds, batchStartedAt)

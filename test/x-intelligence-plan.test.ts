@@ -19,6 +19,8 @@ test('reads every official post and keyword-filters trusted sources in bounded s
   assert.equal(trusted.length, 8)
   assert.equal(trusted.every(item => item.query.includes('from:crypto_news')), true)
   assert.equal(plan.every(item => item.query.length <= 480), true)
+  assert.equal(official.every(item => item.minimumIntervalMs >= 5 * 60_000), true)
+  assert.equal(trusted.every(item => item.minimumIntervalMs >= 30 * 60_000), true)
 })
 
 test('stretches polling intervals when a broad registry would exceed the X request budget', () => {

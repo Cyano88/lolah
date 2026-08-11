@@ -32,6 +32,7 @@ export async function fetchRecentXPosts(
   sinceId?: string,
   startTime?: string,
   maxResults = 100,
+  authorUsernames?: ReadonlyMap<string, string>,
 ): Promise<XRecentSearchResult> {
   const normalizedQuery = query.replace(/\s+/g, ' ').trim()
   if (normalizedQuery.length < 2 || normalizedQuery.length > 480) throw new Error('X query must contain 2 through 480 characters.')
@@ -42,10 +43,12 @@ export async function fetchRecentXPosts(
   const params = new URLSearchParams({
     query: normalizedQuery,
     max_results: String(maxResults),
-    expansions: 'author_id',
     'tweet.fields': 'author_id,created_at,lang',
-    'user.fields': 'username',
   })
+  if (!authorUsernames) {
+    params.set('expansions', 'author_id')
+    params.set('user.fields', 'username')
+  }
   if (nextToken) params.set('next_token', nextToken)
   if (sinceId) {
     if (!/^\d+$/.test(sinceId)) throw new Error('X sinceId is invalid.')
@@ -64,7 +67,7 @@ export async function fetchRecentXPosts(
   const payload: unknown = await response.json()
   if (!isRecord(payload)) throw new Error('X returned an invalid recent-search response.')
   const users = isRecord(payload.includes) && Array.isArray(payload.includes.users) ? payload.includes.users : []
-  const usernames = new Map<string, string>()
+  const usernames = new Map<string, string>(authorUsernames)
   for (const user of users) {
     if (!isRecord(user)) continue
     const id = text(user.id)

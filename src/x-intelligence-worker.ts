@@ -93,7 +93,7 @@ export async function runContinuousXIntelligenceWorker(input: {
   }) => void
   usageBudget?: XDailyUsageBudget
 }) {
-  const intervalMs = input.intervalMs ?? 15_000
+  const intervalMs = input.intervalMs ?? 60_000
   if (!Number.isInteger(intervalMs) || intervalMs < 5_000 || intervalMs > 5 * 60_000) {
     throw new Error('X intelligence worker interval is invalid.')
   }

@@ -45,9 +45,9 @@ export function buildXIntelligencePlan(registryInput: LolahSourceRegistry): XInt
   const plan: XIntelligenceQuery[] = []
   const officialBatches = batches(official, 14)
   const trustedBatches = batches(trusted, 6)
-  const officialIntervalMs = Math.max(30_000, Math.ceil(officialBatches.length * 900_000 / 300))
+  const officialIntervalMs = Math.max(5 * 60_000, Math.ceil(officialBatches.length * 900_000 / 30))
   const trustedQueryCount = trustedBatches.length * CATALYST_GROUPS.length
-  const trustedIntervalMs = Math.max(60_000, Math.ceil(trustedQueryCount * 900_000 / 120))
+  const trustedIntervalMs = Math.max(30 * 60_000, Math.ceil(trustedQueryCount * 900_000 / 30))
   for (const [index, sources] of officialBatches.entries()) {
     plan.push({
       sourceKey: 'x:official:' + index,
