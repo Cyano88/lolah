@@ -70,6 +70,10 @@ export async function handleLolahPublicRequest(
       || Object.keys(request.body as Record<string, unknown>).length > 0
     )) return response(400, { ok: false, error: 'Request body must be an empty JSON object.' })
     const runtimes = dependencies.runtimeStates()
+    const privateSignalRelay = Boolean(
+      dependencies.subscriptionSignals
+      && validRelayToken(String(dependencies.subscriptionRelayToken ?? '').trim())
+    )
     return response(200, {
       ok: true,
       schema: 'lolah-public-status-v1',
@@ -80,18 +84,19 @@ export async function handleLolahPublicRequest(
       usage: await dependencies.usage(),
       delivery: {
         publicAlertRoutes: false,
-        subscriptionPush: false,
-        privateSignalRelay: Boolean(
-          dependencies.subscriptionSignals
-          && validRelayToken(String(dependencies.subscriptionRelayToken ?? '').trim())
-        ),
+        subscriptionPush: privateSignalRelay,
+        privateSignalRelay,
+        dispatcherMode: privateSignalRelay ? 'external_vps' : 'disabled',
+        dispatcherObservation: privateSignalRelay ? 'not_observed_by_render' : 'disabled',
         subscriptionPlan: {
           serviceName: 'Lolah Market Watch',
           freeTrialHours: 72,
           interval: 'month',
           feeUsdt: '1',
         },
-        reason: 'Private signal relay and VPS subscription dispatcher require coordinated deployment.',
+        reason: privateSignalRelay
+          ? 'Authenticated relay is configured; the isolated VPS dispatcher verifies live subscriptions and delivery eligibility.'
+          : 'Subscription delivery is disabled because the authenticated private relay is not configured.',
       },
       simulationOnly: true,
       sendAllowed: false,

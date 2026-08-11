@@ -41,13 +41,15 @@ test('publishes only read-only health and cost status', async () => {
     publicAlertRoutes: false,
     subscriptionPush: false,
     privateSignalRelay: false,
+    dispatcherMode: 'disabled',
+    dispatcherObservation: 'disabled',
     subscriptionPlan: {
       serviceName: 'Lolah Market Watch',
       freeTrialHours: 72,
       interval: 'month',
       feeUsdt: '1',
     },
-    reason: 'Private signal relay and VPS subscription dispatcher require coordinated deployment.',
+    reason: 'Subscription delivery is disabled because the authenticated private relay is not configured.',
   })
   const blocked = await handleLolahPublicRequest({ method: 'POST', path: '/v1/watches', body: {} }, dependencies())
   assert.equal(blocked.status, 404)
@@ -85,6 +87,31 @@ test('keeps the internal signal feed hidden and requires its exact relay token',
   assert.equal(accepted.status, 200)
   assert.deepEqual(accepted.body.signals, [signal])
   assert.equal(accepted.body.executionAllowed, false)
+})
+
+test('reports configured push architecture without claiming Render observes the external dispatcher', async () => {
+  const status = await handleLolahPublicRequest(
+    { method: 'POST', path: '/v1/status', body: {} },
+    {
+      ...dependencies(),
+      subscriptionRelayToken: 's'.repeat(48),
+      subscriptionSignals: async () => [],
+    },
+  )
+  assert.deepEqual(status.body.delivery, {
+    publicAlertRoutes: false,
+    subscriptionPush: true,
+    privateSignalRelay: true,
+    dispatcherMode: 'external_vps',
+    dispatcherObservation: 'not_observed_by_render',
+    subscriptionPlan: {
+      serviceName: 'Lolah Market Watch',
+      freeTrialHours: 72,
+      interval: 'month',
+      feeUsdt: '1',
+    },
+    reason: 'Authenticated relay is configured; the isolated VPS dispatcher verifies live subscriptions and delivery eligibility.',
+  })
 })
 
 test('public node adapter rejects malformed URLs, JSON, and oversized bodies', async () => {
