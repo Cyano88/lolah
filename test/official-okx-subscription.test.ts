@@ -19,7 +19,8 @@ test('intersects active jobs with exact provider subscription metadata', async (
     return { ok: true, data: { list: [
       {
         jobId: 'job_live', providerAgentId: '9001', buyerAgentId: '7001',
-        serviceName: 'Lolah Market Watch',
+        serviceName: 'Lolah Market Watch subscription',
+        serviceId: 'service_lolah',
       },
       {
         jobId: 'job_unrelated', providerAgentId: '9001', buyerAgentId: '7002',
@@ -32,14 +33,25 @@ test('intersects active jobs with exact provider subscription metadata', async (
     ] } }
   }
   const directory = new OfficialOkxSubscriptionDirectory(run, 'onchainos-fixture')
-  assert.deepEqual(await directory.listActive('9001', 'Lolah Market Watch'), [{
+  assert.deepEqual(await directory.listActive('9001', 'Lolah Market Watch', 'service_lolah'), [{
     jobId: 'job_live', providerAgentId: '9001', buyerAgentId: '7001',
-    serviceName: 'Lolah Market Watch',
+    serviceName: 'Lolah Market Watch', serviceId: 'service_lolah',
   }])
   assert.deepEqual(calls, [
     ['agent', 'subscribe-active', '--agent-id', '9001'],
     ['agent', 'my-subscriptions', '--role', 'provider', '--status', 'ACTIVE'],
   ])
+})
+
+test('rejects a similarly named subscription when its immutable service id differs', async () => {
+  const run: JsonCommandRunner = async (_executable, args) => args.includes('subscribe-active')
+    ? { ok: true, data: [{ jobId: 'job_live', status: 1 }] }
+    : { ok: true, data: { list: [{
+      jobId: 'job_live', providerAgentId: '9001', buyerAgentId: '7001',
+      serviceName: 'Lolah Market Watch subscription', serviceId: 'service_other',
+    }] } }
+  const directory = new OfficialOkxSubscriptionDirectory(run)
+  assert.deepEqual(await directory.listActive('9001', 'Lolah Market Watch', 'service_lolah'), [])
 })
 
 test('fails closed when official subscription responses are malformed', async () => {

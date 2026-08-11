@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
 export const LOLAH_MARKET_WATCH_PLAN = Object.freeze({
+  serviceId: '17abe635-66b5-45c7-bfa2-8c7b546474e1',
   serviceName: 'Lolah Market Watch',
   billingModel: 'subscription' as const,
   freeTrialHours: 72,
@@ -26,10 +27,11 @@ export type LolahActiveSubscriber = {
   providerAgentId: string
   buyerAgentId: string
   serviceName: string
+  serviceId?: string
 }
 
 export type LolahSubscriptionDirectory = {
-  listActive(providerAgentId: string, serviceName: string): Promise<LolahActiveSubscriber[]>
+  listActive(providerAgentId: string, serviceName: string, serviceId?: string): Promise<LolahActiveSubscriber[]>
 }
 
 export type LolahSubscriptionMessenger = {
@@ -202,11 +204,16 @@ export async function dispatchSubscriptionSignals(input: {
   if (!input.enabled) {
     return { enabled: false, subscribers: 0, attempted: 0, sent: 0, retrying: 0, deadLettered: 0, expired: 0 }
   }
-  const subscribers = await input.directory.listActive(providerAgentId, LOLAH_MARKET_WATCH_PLAN.serviceName)
+  const subscribers = await input.directory.listActive(
+    providerAgentId,
+    LOLAH_MARKET_WATCH_PLAN.serviceName,
+    LOLAH_MARKET_WATCH_PLAN.serviceId,
+  )
   const unique = new Map<string, LolahActiveSubscriber>()
   for (const subscriber of subscribers) {
     if (validId(subscriber.providerAgentId, 'Subscriber providerAgentId') !== providerAgentId
-      || subscriber.serviceName !== LOLAH_MARKET_WATCH_PLAN.serviceName) continue
+      || subscriber.serviceName !== LOLAH_MARKET_WATCH_PLAN.serviceName
+      || (subscriber.serviceId !== undefined && subscriber.serviceId !== LOLAH_MARKET_WATCH_PLAN.serviceId)) continue
     const jobId = validId(subscriber.jobId, 'Subscriber jobId')
     const buyerAgentId = validId(subscriber.buyerAgentId, 'Subscriber buyerAgentId')
     unique.set(jobId + ':' + buyerAgentId, { ...subscriber, jobId, buyerAgentId, providerAgentId })

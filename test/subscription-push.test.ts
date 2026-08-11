@@ -35,6 +35,7 @@ function subscribers() {
 
 test('locks Market Watch to a 72-hour trial and 1 USDT monthly plan', () => {
   assert.deepEqual(LOLAH_MARKET_WATCH_PLAN, {
+    serviceId: '17abe635-66b5-45c7-bfa2-8c7b546474e1',
     serviceName: 'Lolah Market Watch', billingModel: 'subscription',
     freeTrialHours: 72, interval: 'month', feeUsdt: '1',
   })

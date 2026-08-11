@@ -54,7 +54,7 @@ export class OfficialOkxSubscriptionDirectory implements LolahSubscriptionDirect
     private readonly onchainosExecutable = process.env.LOLAH_ONCHAINOS_BIN || 'onchainos',
   ) {}
 
-  async listActive(providerAgentId: string, serviceName: string): Promise<LolahActiveSubscriber[]> {
+  async listActive(providerAgentId: string, serviceName: string, serviceId?: string): Promise<LolahActiveSubscriber[]> {
     const [activeResponse, providedResponse] = await Promise.all([
       this.run(this.onchainosExecutable, ['agent', 'subscribe-active', '--agent-id', providerAgentId]),
       this.run(this.onchainosExecutable, ['agent', 'my-subscriptions', '--role', 'provider', '--status', 'ACTIVE']),
@@ -68,10 +68,17 @@ export class OfficialOkxSubscriptionDirectory implements LolahSubscriptionDirect
       const jobId = text(item.jobId ?? item.subId ?? item.id)
       const buyerAgentId = text(item.buyerAgentId ?? item.userAgentId)
       const title = text(item.serviceName ?? item.jobTitle ?? item.title)
+      const returnedServiceId = text(item.serviceId)
       const returnedProviderId = text(item.providerAgentId ?? item.aspAgentId)
-      if (!activeIds.has(jobId) || !buyerAgentId || title !== serviceName) continue
+      const exactServiceId = Boolean(serviceId && returnedServiceId && returnedServiceId === serviceId)
+      const exactKnownTitle = title === serviceName || title === serviceName + ' subscription'
+      if (!activeIds.has(jobId) || !buyerAgentId || (!exactServiceId && !exactKnownTitle)) continue
+      if (serviceId && returnedServiceId && returnedServiceId !== serviceId) continue
       if (returnedProviderId && returnedProviderId !== providerAgentId) continue
-      result.push({ jobId, buyerAgentId, providerAgentId, serviceName: title })
+      result.push({
+        jobId, buyerAgentId, providerAgentId, serviceName,
+        ...(returnedServiceId ? { serviceId: returnedServiceId } : {}),
+      })
     }
     return result
   }
