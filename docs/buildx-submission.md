@@ -1,61 +1,98 @@
-# Lolah BuildX submission readiness
+# Lolah BuildX submission
 
-Target: the fixed BuildX Hackathon Grant for an AI-powered onchain application. Lolah does not claim
-eligibility for the AI-RWA liquidity prize or volume-based Launch Grant without real qualifying
-liquidity or trading volume.
+## One-line pitch
 
-The August campaign dates and prize amounts below come from the current announcement supplied by the
-project owner. Re-check the official submission form before submitting because the indexed OKX Build X
-page still exposes earlier 2026 rounds.
+Lolah turns the earliest verified crypto catalysts into safe, cross-market intelligence for subscribed
+agents, then anchors privacy-preserving signal and delivery proofs on X Layer.
+
+## The problem
+
+Crypto agents are usually forced to choose between speed and trust. A fast social post may be false,
+late, or irrelevant to the market an agent can actually trade. A generic news feed also does not say
+whether a matching perpetual or prediction market exists. Lolah closes that gap without converting a
+headline directly into an unsafe order.
+
+## The product loop
+
+1. Detect the catalyst. Upbit listings use a low-latency Seoul feed and require an official Upbit notice;
+   curated X sources provide broader exchange, project, founder, developer, regulatory, research, and
+   security coverage.
+2. Verify and classify it. Immutable X author IDs, source scopes, freshness rules, corroboration, and
+   duplicate suppression reject impersonators and stale or ambiguous claims.
+3. Add market meaning. Lolah checks for the nearest PolyDesk prediction-market context and a matching
+   Hyperliquid perpetual market. Missing markets and unavailable context are reported explicitly.
+4. Make the safe decision. The current product emits intelligence-only `watch`, `context_ready`, or
+   `no_trade` outcomes. It cannot sign or place a trade.
+5. Deliver to eligible agents. Lolah Market Watch pushes only to subscribers returned by the official
+   OKX active-subscription paths for Lolah's exact ASP and service identity.
+6. Prove the work on X Layer. Deterministic Merkle roots can prove that a signal batch existed and that
+   deliveries occurred without publishing alert text, agent identities, positions, or instructions.
+
+## Why X Layer matters
+
+X Layer is not a decorative deployment target. It is Lolah's neutral proof surface for
+paid agent intelligence. A subscriber or partner can independently verify a batch commitment while the
+sensitive intelligence remains offchain. The same primitive can later support transparent service-level
+agreements and accountable agent-to-agent data markets.
+
+This makes Lolah a bridge between four forms of market truth:
+
+- authoritative catalysts from official sources;
+- probability context from PolyDesk and Polymarket;
+- executable-market availability and conditions from Hyperliquid;
+- verifiable signal and delivery commitments on X Layer.
+
+## Verified working evidence
+
+The production evidence and reproduction-safe audit trail are recorded in
+[`production-evidence.md`](production-evidence.md).
+
+- Standalone Lolah ASP: `#10775`.
+- Lolah Market Watch service: `17abe635-66b5-45c7-bfa2-8c7b546474e1`.
+- Commercial plan: 72-hour free trial, then 1 USDT per month.
+- Live scanner health: <https://lolah.onrender.com/health>.
+- A real Upbit DOS listing was accepted from the official notice and detected after 315 ms.
+- Lolah found no matching Hyperliquid perpetual and correctly sent a no-trade intelligence alert.
+- The production alert reached an eligible subscribed agent through OKX delivery and was acknowledged.
+- The active-recipient audit returned three eligible subscriptions, including two trial subscriptions.
+- Repository verification at release `1d453ce`: 157 tests passed and TypeScript type-check passed.
+
+## X Layer component
+
+- Contract: [`../contracts/LolahSignalProofRegistry.sol`](../contracts/LolahSignalProofRegistry.sol)
+- Proof builder: [`../src/xlayer-signal-proof.ts`](../src/xlayer-signal-proof.ts)
+- Network target: X Layer mainnet, chain ID 196
+- Contract behavior: rejects duplicate roots, requires a signal root before its delivery root, and uses a
+  two-step operator transfer.
+- Privacy: only roots, counts, time windows, release hashes, and timestamps are public.
+
+Contract deployment and the first explorer-verified proof transaction are still pending. Do not describe
+the contract as deployed until both the address and transaction are added here.
 
 ## Eligibility checklist
 
+The August deadline and requirements below come from the organizer announcement supplied by the project
+owner. Re-check the live submission form immediately before entry.
+
 | Requirement | Evidence | State |
 |---|---|---|
-| AI is integral to the product | Verified crypto-event classification plus PolyDesk prediction context and Hyperliquid market context | Implemented |
-| Independent X Layer deployment | LolahSignalProofRegistry.sol anchors privacy-preserving signal and delivery batch roots | Source implemented; deployment pending |
-| Public working product | https://lolah.onrender.com/health and the Lolah OKX service | Scanner live; ASP registration pending |
-| Dedicated X account | Public Lolah product account | Pending |
-| Submission post tags @XLayerOfficial | Dedicated account submission post | Pending |
-| Submit by August 21 at 23:59 UTC | Official submission form | Pending |
+| AI is integral | Agent workflow verifies catalysts, combines PolyDesk and Hyperliquid context, and produces bounded market intelligence | Working |
+| Independent X Layer deployment | Signal proof contract and deterministic proof builder | Source complete; deploy pending |
+| Public working product | Live Render scanner plus listed Lolah ASP and Market Watch service | Working |
+| Dedicated X account | Public Lolah product account | Pending verification |
+| Submission post tags `@XLayerOfficial` | Final demo post from the dedicated account | Pending |
+| Submit by August 21, 23:59 UTC | Organizer submission form | Pending |
 
-## Judge-facing product loop
+## Prize strategy
 
-1. Lolah detects an official Upbit listing or high-impact crypto announcement.
-2. It verifies the source and classifies the event.
-3. It adds current Hyperliquid market conditions and the nearest PolyDesk prediction-market consensus,
-   or states that no relevant Polymarket market exists.
-4. It pushes an intelligence-only alert to agents with a currently active Lolah Market Watch
-   subscription.
-5. It batches signal and delivery commitments into Merkle roots and anchors only those roots on X
-   Layer. Raw messages, subscribers, positions, and trading instructions remain offchain.
+Submit first for the fixed Hackathon Grant. Do not claim the AI-RWA liquidity prize or volume-based
+Launch Grant without independently verifiable qualifying liquidity or trading volume. Lolah's strongest
+present case is a working, monetized agent-to-agent intelligence rail with a real safety decision and a
+clear reason for using X Layer.
 
-## Onchain component
+## Claims boundary
 
-- Contract: contracts/LolahSignalProofRegistry.sol
-- Network: X Layer mainnet, chain ID 196
-- Public RPC: https://rpc.xlayer.tech
-- Explorer: https://www.okx.com/web3/explorer/xlayer
-- Contract address: pending deployment
-- Deployment transaction: pending deployment
-
-The contract has a two-step operator rotation, rejects duplicate batches, requires delivery batches to
-reference an existing signal batch, and stores no private subscriber information.
-
-## Demo evidence to capture
-
-- The earliest official Upbit event receipt and measured detection latency.
-- The generated alert with source, Hyperliquid context, PolyDesk match or no-market result, and risk
-  explanation.
-- A controlled subscribed-agent delivery through the official OKX recipient-eligibility path.
-- The signal batch root, X Layer transaction, contract event, and explorer link.
-- The public Lolah service status showing the 72-hour trial and 1 USDT monthly plan.
-
-## Submission positioning
-
-Lolah is an explainable cross-market intelligence rail for agents. Its differentiation is not another
-generic news feed: it connects authoritative catalysts, perpetual-market conditions, prediction-market
-consensus, paid agent distribution, and privacy-preserving X Layer proof.
-
-Do not claim that Lolah predicts guaranteed outcomes, automatically places trades, has reached 10M USDT
-volume, or qualifies for the AI-RWA liquidity grant unless those facts become independently verifiable.
+Do not claim guaranteed predictions, autonomous execution, 10M USDT of volume, full coverage of every X
+account, or a deployed X Layer contract until each is independently verified. The honest demo is stronger:
+Lolah caught a real catalyst quickly, checked whether action was possible, refused an unsupported trade,
+and delivered useful intelligence to subscribed agents.

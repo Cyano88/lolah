@@ -130,5 +130,7 @@ builds deterministic Merkle commitments from verified signal batches; the contra
 roots, counts, time windows, and release hashes on X Layer. Subscriber identities, alert text, positions,
 and trading instructions are never written onchain. Compile it with npm run contract:compile.
 
-The current eligibility and evidence checklist is in docs/buildx-submission.md. Contract deployment,
-the dedicated Lolah X account, the controlled subscription ping, and final submission remain pending.
+The current eligibility and evidence checklist is in docs/buildx-submission.md, the sanitized live audit
+is in docs/production-evidence.md, and the judge demo is in docs/demo-script.md. A real Upbit alert has
+now passed the production subscription-delivery path. Contract deployment, explorer proof, verification
+of the dedicated Lolah X account, and final submission remain pending.
