@@ -37,6 +37,9 @@ export function xJobSubscriptionSignal(job: LolahContextJob): LolahSubscriptionS
     message: compact([
       `[Lolah Intelligence] ${job.event.headline}`,
       `Verification: ${job.event.verification.status}. Event: ${job.event.eventType}.`,
+      job.event.verification.status === 'official_source'
+        ? 'Source relationship: first-party project or issuer announcement; this is not independent analysis.'
+        : undefined,
       marketLine,
       predictionLine,
       `Assessment: ${job.scan.reason}`,

@@ -48,8 +48,10 @@ test('resolves the checked-in starter catalog without guessed IDs', async () => 
       data: usernames.map((username, index) => ({ id: String(50_000 + index), username })),
     }), { status: 200 })
   })
-  assert.equal(registry.entities.length, 24)
-  assert.equal(registry.sources.length, 9)
+  assert.equal(registry.entities.length, 25)
+  assert.equal(registry.sources.length, 10)
+  assert.equal(registry.sources.some(source => source.username === 'fanvibeonx'
+    && source.entityIds.length === 1 && source.entityIds[0] === 'fvb'), true)
   assert.equal(registry.sources.some(source => source.category === 'crypto_news'), true)
   assert.equal(registry.sources.some(source => source.category === 'security'), true)
   assert.equal(registry.sources.filter(source => source.entityIds[0] === '*').length, 4)

@@ -123,3 +123,27 @@ test('matches automatically discovered markets only as case-sensitive tickers', 
   if (result.status !== 'new_event') return
   assert.deepEqual(result.targetMarkets, ['CYS'])
 })
+
+test('accepts an official FanVibe buyback and maps FVB for an explicit venue availability check', () => {
+  const fanvibe: LolahSourceRegistry = {
+    entities: [{
+      id: 'fvb', name: 'FanVibe', aliases: ['FanVibe', 'FanVibe Token'], symbols: ['FVB'],
+      hyperliquidMarkets: ['FVB'],
+    }],
+    sources: [{
+      platform: 'x', authorId: '400', username: 'fanvibeonx', tier: 'official_project',
+      category: 'project', entityIds: ['fvb'],
+    }],
+  }
+  const result = new LolahNewsScout(fanvibe).ingest(post({
+    postId: '50', authorId: '400', username: 'FanVibeOnX',
+    text: 'FanVibe treasury buyback: we will buy back tokens and hold the purchased FVB.',
+    sourceUrl: 'https://x.com/FanVibeOnX/status/50',
+  }), detectedAt)
+  assert.equal(result.status, 'new_event')
+  if (result.status !== 'new_event') return
+  assert.equal(result.event.eventType, 'buyback')
+  assert.equal(result.event.verification.status, 'official_source')
+  assert.deepEqual(result.entityIds, ['fvb'])
+  assert.deepEqual(result.targetMarkets, ['FVB'])
+})

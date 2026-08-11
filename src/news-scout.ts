@@ -44,7 +44,10 @@ const EVENT_TERMS: Array<{ eventType: EventType; phrases: string[] }> = [
   { eventType: 'token_launch', phrases: ['token launch', 'launching our token', 'token generation event', ' tge '] },
   { eventType: 'airdrop', phrases: ['airdrop announced', 'airdrop claim', 'airdrop eligibility', 'claim the airdrop'] },
   { eventType: 'protocol_upgrade', phrases: ['protocol upgrade', 'network upgrade', 'hard fork', 'major upgrade'] },
-  { eventType: 'buyback', phrases: ['token buyback', 'buyback program', 'repurchase tokens'] },
+  { eventType: 'buyback', phrases: [
+    'token buyback', 'buyback program', 'treasury buyback', 'open market buyback',
+    'buy back tokens', 'repurchase tokens', 'repurchased tokens', 'buyback complete',
+  ] },
   { eventType: 'token_burn', phrases: ['token burn', 'burning tokens', 'tokens burned'] },
   { eventType: 'bankruptcy', phrases: ['filed for bankruptcy', 'bankruptcy filing', 'insolvency proceedings', 'is insolvent'] },
   { eventType: 'trading_halt', phrases: ['trading halted', 'trading suspended', 'suspend trading', 'halt deposits', 'halt withdrawals'] },

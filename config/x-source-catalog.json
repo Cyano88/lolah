@@ -24,7 +24,8 @@
     { "id": "tao", "name": "Bittensor", "aliases": ["Bittensor"], "symbols": ["TAO"], "hyperliquidMarkets": ["TAO"] },
     { "id": "wif", "name": "dogwifhat", "aliases": ["dogwifhat"], "symbols": ["WIF"], "hyperliquidMarkets": ["WIF"] },
     { "id": "trump", "name": "Official Trump", "aliases": ["Official Trump"], "symbols": ["TRUMP"], "hyperliquidMarkets": ["TRUMP"] },
-    { "id": "virtual", "name": "Virtuals Protocol", "aliases": ["Virtuals Protocol"], "symbols": ["VIRTUAL"], "hyperliquidMarkets": ["VIRTUAL"] }
+    { "id": "virtual", "name": "Virtuals Protocol", "aliases": ["Virtuals Protocol"], "symbols": ["VIRTUAL"], "hyperliquidMarkets": ["VIRTUAL"] },
+    { "id": "fvb", "name": "FanVibe", "aliases": ["FanVibe", "FanVibe Token"], "symbols": ["FVB"], "hyperliquidMarkets": ["FVB"] }
   ],
   "sources": [
     { "username": "Official_Upbit", "tier": "official_project", "category": "exchange", "entityIds": ["*"], "identityProofUrl": "https://support.upbit.com/hc/ko/articles/49617343307289" },
@@ -35,6 +36,7 @@
     { "username": "SolanaFndn", "tier": "official_project", "category": "foundation", "entityIds": ["sol"], "identityProofUrl": "https://solana.com/pl/news/solana-ecosystem-roundup-june-2026" },
     { "username": "ethereum", "tier": "official_project", "category": "foundation", "entityIds": ["eth"], "identityProofUrl": "https://ethereum.org/about/" },
     { "username": "WuBlockchain", "tier": "trusted_reporter", "category": "crypto_news", "entityIds": ["*"], "identityProofUrl": "https://linktr.ee/wublockchain" },
-    { "username": "SlowMist_Team", "tier": "security_researcher", "category": "security", "entityIds": ["*"], "identityProofUrl": "https://www.slowmist.io/en/" }
+    { "username": "SlowMist_Team", "tier": "security_researcher", "category": "security", "entityIds": ["*"], "identityProofUrl": "https://www.slowmist.io/en/" },
+    { "username": "FanVibeOnX", "tier": "official_project", "category": "project", "entityIds": ["fvb"], "identityProofUrl": "https://www.fanvibe.xyz/" }
   ]
 }
