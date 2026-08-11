@@ -44,8 +44,8 @@ acknowledgement.
 delivery commitments into Merkle roots and anchors those proofs on X Layer. Partners can verify when
 intelligence and delivery existed without exposing the intelligence itself.”
 
-Show the deployed contract and the two explorer transactions. Do not record this segment until the
-contract and proof batches are actually deployed.
+Show the deployed contract, the DOS signal transaction, the delivery transaction, and the nonzero
+onchain timestamps for both roots.
 
 ## 96-100 seconds: close
 

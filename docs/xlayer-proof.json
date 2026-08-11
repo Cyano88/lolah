@@ -1,0 +1,33 @@
+{
+  "schema": "lolah-public-xlayer-proof-v1",
+  "chainId": 196,
+  "source": {
+    "provider": "Upbit",
+    "url": "https://www.upbit.com/service_center/notice?id=1478681589",
+    "occurredAt": "2026-08-11T02:30:37.599Z",
+    "detectionLatencyMs": 315,
+    "executionAllowed": false
+  },
+  "contract": {
+    "address": "0xf045acdaab3fcb6950e74301a655f1a5b4e5312f",
+    "deploymentTransaction": "0xab174ce987aa52f3653538f3a4eed0048b0617307bf3f4226a8b3c483f1c0020",
+    "runtimeBytecodeMatch": true,
+    "operatorMatch": true
+  },
+  "signal": {
+    "root": "0xc131ae03cd45d4d4a6df93022f9c500301aeb604476c48810a2b2d949bdf1513",
+    "releaseHash": "0x9bd06e534686651aebc9ee36d50b7ea7bb081cc9c24e0a0de22e230a0f3136e1",
+    "windowStart": 1786415437,
+    "windowEnd": 1786415437,
+    "count": 1,
+    "transaction": "0x5194b92c17760a5549de34b3b3d9857bac802431ecf402a38c83c3165fd5dbd9",
+    "anchored": true
+  },
+  "delivery": {
+    "root": "0xd3fd8e49264259db8058d5c8def87e6af016262cb44c3ffff1ea3708d7f91bf7",
+    "count": 1,
+    "transaction": "0x1378d78fca94327de989191046f7fa68dd2862fa7296119618f1cdf0234e5e9c",
+    "anchored": true
+  },
+  "privacy": "no_raw_message_or_subscriber_identity_onchain"
+}

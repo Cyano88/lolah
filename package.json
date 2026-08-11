@@ -18,11 +18,15 @@
     "service": "node --import tsx scripts/lolah-service.ts",
     "subscription:dispatcher": "node --import tsx scripts/subscription-dispatcher.ts",
     "contract:compile": "node --import tsx scripts/compile-xlayer-contract.ts",
+    "contract:prepare-deployment": "node --import tsx scripts/prepare-xlayer-deployment.ts",
+    "contract:verify-deployment": "node --import tsx scripts/verify-xlayer-deployment.ts",
+    "contract:prepare-anchors": "node --import tsx scripts/prepare-xlayer-proof-anchors.ts",
     "x:resolve-sources": "node --import tsx scripts/resolve-x-source-catalog.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/ws": "^8.18.1",
+    "js-sha3": "^0.8.0",
     "solc": "^0.8.36",
     "tsx": "^4.23.0",
     "typescript": "^5.5.3"

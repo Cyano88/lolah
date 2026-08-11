@@ -3,6 +3,7 @@ node_modules/
 .env.*
 dist/
 coverage/
+artifacts/
 *.log
 .playwright-cli/
 *.tgz

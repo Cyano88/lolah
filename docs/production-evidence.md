@@ -62,12 +62,27 @@ CoinListing Seoul / curated X sources
                  v
         eligible subscribed agents
 
-signal and delivery commitments --> X Layer proof registry (deployment pending)
+signal and delivery commitments --> deployed X Layer proof registry
 ```
 
 The Render scanner and VPS dispatcher are separate trust zones. Render never chooses recipients or
 receives OKX signing material. The dispatcher does not receive a trading key and cannot turn an alert
 into an order.
+
+## Verified X Layer proof
+
+- Contract: [`0xf045...312f`](https://www.oklink.com/x-layer/evm/address/0xf045acdaab3fcb6950e74301a655f1a5b4e5312f)
+- Deployment: [`0xab17...0020`](https://www.oklink.com/x-layer/evm/tx/0xab174ce987aa52f3653538f3a4eed0048b0617307bf3f4226a8b3c483f1c0020), 2026-08-11 06:16:32 UTC
+- DOS signal root: `0xc131ae03cd45d4d4a6df93022f9c500301aeb604476c48810a2b2d949bdf1513`
+- Signal anchor: [`0x5194...dbd9`](https://www.oklink.com/x-layer/evm/tx/0x5194b92c17760a5549de34b3b3d9857bac802431ecf402a38c83c3165fd5dbd9), 2026-08-11 08:53:19 UTC
+- Delivery root: `0xd3fd8e49264259db8058d5c8def87e6af016262cb44c3ffff1ea3708d7f91bf7`
+- Delivery anchor: [`0x1378...5e9c`](https://www.oklink.com/x-layer/evm/tx/0x1378d78fca94327de989191046f7fa68dd2862fa7296119618f1cdf0234e5e9c), 2026-08-11 08:54:11 UTC
+- Public proof manifest: [`xlayer-proof.json`](xlayer-proof.json)
+
+The signal commitment contains one verified Upbit event. The delivery commitment contains one completed
+OKX delivery. Source URLs and message content are hashed, while subscriber identities and raw delivery
+records never enter the public proof. Both transactions passed the wallet security scan without a risk
+action or warning before broadcast.
 
 ## Source-enforced safety evidence
 
@@ -95,9 +110,7 @@ to the exact known service title. The recorded test run passed 157 tests and Typ
 
 ## Evidence still required before submission
 
-- Deploy `LolahSignalProofRegistry.sol` independently on X Layer.
-- Anchor a sanitized signal batch containing the DOS proof commitment.
-- Anchor its delivery batch and save both explorer links.
+- Complete explorer source-code verification for `LolahSignalProofRegistry.sol`.
 - Verify the dedicated Lolah X account and publish the tagged demo post.
 - Capture a short screen recording showing the source notice, Lolah alert, safe no-trade result,
   subscriber receipt, and X Layer explorer proof.

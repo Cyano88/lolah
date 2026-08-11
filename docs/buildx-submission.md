@@ -55,7 +55,8 @@ The production evidence and reproduction-safe audit trail are recorded in
 - Lolah found no matching Hyperliquid perpetual and correctly sent a no-trade intelligence alert.
 - The production alert reached an eligible subscribed agent through OKX delivery and was acknowledged.
 - The active-recipient audit returned three eligible subscriptions, including two trial subscriptions.
-- Repository verification at release `1d453ce`: 157 tests passed and TypeScript type-check passed.
+- The DOS signal and its completed delivery are now independently committed on X Layer.
+- Current repository verification: 161 tests passed, TypeScript type-check passed, and contract compile passed.
 
 ## X Layer component
 
@@ -65,9 +66,14 @@ The production evidence and reproduction-safe audit trail are recorded in
 - Contract behavior: rejects duplicate roots, requires a signal root before its delivery root, and uses a
   two-step operator transfer.
 - Privacy: only roots, counts, time windows, release hashes, and timestamps are public.
+- Deployed contract: [`0xf045...312f`](https://www.oklink.com/x-layer/evm/address/0xf045acdaab3fcb6950e74301a655f1a5b4e5312f)
+- Deployment transaction: [`0xab17...0020`](https://www.oklink.com/x-layer/evm/tx/0xab174ce987aa52f3653538f3a4eed0048b0617307bf3f4226a8b3c483f1c0020)
+- DOS signal anchor: [`0x5194...dbd9`](https://www.oklink.com/x-layer/evm/tx/0x5194b92c17760a5549de34b3b3d9857bac802431ecf402a38c83c3165fd5dbd9)
+- Delivery anchor: [`0x1378...5e9c`](https://www.oklink.com/x-layer/evm/tx/0x1378d78fca94327de989191046f7fa68dd2862fa7296119618f1cdf0234e5e9c)
+- Machine-readable proof: [`xlayer-proof.json`](xlayer-proof.json)
 
-Contract deployment and the first explorer-verified proof transaction are still pending. Do not describe
-the contract as deployed until both the address and transaction are added here.
+Independent RPC verification confirmed that the deployed runtime bytecode matches the compiled artifact,
+the operator matches the dedicated Lolah wallet, and both proof roots have nonzero onchain timestamps.
 
 ## Eligibility checklist
 
@@ -77,7 +83,7 @@ owner. Re-check the live submission form immediately before entry.
 | Requirement | Evidence | State |
 |---|---|---|
 | AI is integral | Agent workflow verifies catalysts, combines PolyDesk and Hyperliquid context, and produces bounded market intelligence | Working |
-| Independent X Layer deployment | Signal proof contract and deterministic proof builder | Source complete; deploy pending |
+| Independent X Layer deployment | Live proof registry plus anchored DOS signal and delivery roots | Complete |
 | Public working product | Live Render scanner plus listed Lolah ASP and Market Watch service | Working |
 | Dedicated X account | Public Lolah product account | Pending verification |
 | Submission post tags `@XLayerOfficial` | Final demo post from the dedicated account | Pending |
@@ -92,7 +98,7 @@ clear reason for using X Layer.
 
 ## Claims boundary
 
-Do not claim guaranteed predictions, autonomous execution, 10M USDT of volume, full coverage of every X
-account, or a deployed X Layer contract until each is independently verified. The honest demo is stronger:
+Do not claim guaranteed predictions, autonomous execution, 10M USDT of volume, or full coverage of every X
+account. The honest demo is stronger:
 Lolah caught a real catalyst quickly, checked whether action was possible, refused an unsupported trade,
 and delivered useful intelligence to subscribed agents.

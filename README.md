@@ -132,5 +132,6 @@ and trading instructions are never written onchain. Compile it with npm run cont
 
 The current eligibility and evidence checklist is in docs/buildx-submission.md, the sanitized live audit
 is in docs/production-evidence.md, and the judge demo is in docs/demo-script.md. A real Upbit alert has
-now passed the production subscription-delivery path. Contract deployment, explorer proof, verification
-of the dedicated Lolah X account, and final submission remain pending.
+passed the production subscription-delivery path, and its signal and delivery commitments are anchored
+in the deployed X Layer registry. Explorer source verification, verification of the dedicated Lolah X
+account, and final submission remain pending.
